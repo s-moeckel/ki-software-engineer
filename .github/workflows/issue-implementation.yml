@@ -68,13 +68,19 @@ jobs:
             Do not invent failures or claim the implementation is verified.
             Do not run tests, builds, or linters locally. Stay on the prepared branch.
             Summarize the changes, acceptance-criterion coverage and unexecuted checks.
-            Create the necessary commits. Do not push;
-            the next workflow step publishes the branch.
+            Leave changes in the working tree. Do not stage, commit, or push;
+            the next workflow step commits the changes and publishes the branch.
 
-      - name: Publish feature branch
+      - name: Commit changes and publish feature branch
         env:
           BRANCH_NAME: ${{ steps.prepare-branch.outputs.branch_name }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
           test "$(git branch --show-current)" = "$BRANCH_NAME"
+          git diff --check
+          git add --all
+          if ! git diff --cached --quiet; then
+            git commit -m "Implement issue #${ISSUE_NUMBER}"
+          fi
           git push --set-upstream origin "$BRANCH_NAME"
