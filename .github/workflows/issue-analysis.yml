@@ -20,6 +20,8 @@ jobs:
 
       - name: Analyze Issue with OpenAI
         uses: openai/codex-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ":workspace"
