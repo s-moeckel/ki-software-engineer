@@ -26,6 +26,8 @@ jobs:
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          # Permit github-actions[bot] as the actor of repository automation.
+          allow-bots: true
           model: 'gpt-5.6-luna'
           sandbox: read-only
           output-file: ${{ runner.temp }}/code-review.md
