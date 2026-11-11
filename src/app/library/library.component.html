@@ -1,0 +1,118 @@
+<section class="library" aria-label="Virtual Library">
+  <div #scene class="library-scene"></div>
+  <header class="library-heading">
+    <a routerLink="/" class="library-back">← ZUR BÜCHERSAMMLUNG</a>
+    <h1>Virtual Library</h1>
+    <p>Deine Sammlung als begehbare Bibliothek</p>
+  </header>
+
+  <div class="library-search">
+    <label for="library-search-input">Bibliothek durchsuchen</label>
+    <input
+      id="library-search-input"
+      type="search"
+      [value]="query()"
+      placeholder="Titel, Autor oder ISBN …"
+      (input)="search($any($event.target).value)"
+    />
+  </div>
+
+  <aside class="library-controls" aria-label="Bibliothekssteuerung">
+    <button type="button" (click)="enablePointerLock()">Maussteuerung aktivieren</button>
+    <button type="button" (click)="resetView()">Ansicht zurücksetzen</button>
+    <button type="button" (click)="setLowQuality()">{{ lowQuality() ? 'Normale Grafik' : 'Reduzierte Grafik' }}</button>
+    <p>
+      Rechte Maustaste halten: laufen · Ziehen: umsehen · Linksklick: Buch herausnehmen (bis 2 m) · Mausrad: Buch zoomen
+      · W/A/S/D bewegen · Shift schneller · E betrachtet · Escape legt zurück / beendet Maussteuerung
+    </p>
+  </aside>
+
+  @if (loading()) {
+    <div class="library-status" role="status">
+      <h2>Bibliothek wird geladen</h2>
+      <p>Wir ordnen deine Bücher ein …</p>
+    </div>
+  } @else if (error()) {
+    <div class="library-status" role="alert">
+      <h2>Bibliothek nicht erreichbar</h2>
+      <p>{{ error() }}</p>
+      <button type="button" (click)="load()">Erneut versuchen</button>
+    </div>
+  } @else if (!books().length) {
+    <div class="library-status" role="status">
+      <h2>Die Bibliothek ist leer</h2>
+      <p>In deiner Sammlung sind noch keine Bücher vorhanden.</p>
+      <a routerLink="/">Zur Bücherübersicht</a>
+    </div>
+  } @else if (graphicsError()) {
+    <div class="library-status" role="alert">
+      <h2>3D-Ansicht nicht verfügbar</h2>
+      <p>WebGL fehlt oder wurde unterbrochen. Die Buchliste bleibt erreichbar.</p>
+      <a routerLink="/">Zur Bücherübersicht</a>
+    </div>
+  }
+
+  <aside class="library-list" aria-label="Bücherliste">
+    <h2>
+      {{ query() ? 'SUCHERGEBNISSE' : 'DEINE SAMMLUNG' }} <span>{{ searchResults().length }} Bücher</span>
+    </h2>
+    @for (book of searchResults(); track book.isbn) {
+      <div class="library-result">
+        <button
+          type="button"
+          [class.selected]="selected()?.isbn === book.isbn"
+          [disabled]="inspecting() && selected()?.isbn !== book.isbn"
+          (click)="choose(book)"
+        >
+          <strong>{{ book.title }}</strong
+          ><small>{{ book.author }} · {{ book.isbn }}</small>
+        </button>
+        <button
+          type="button"
+          class="library-result-details"
+          [disabled]="inspecting() && selected()?.isbn !== book.isbn"
+          (click)="choose(book) && openDetails()"
+        >
+          Details öffnen
+        </button>
+      </div>
+    } @empty {
+      <p>Keine passenden Bücher gefunden.</p>
+    }
+  </aside>
+
+  @if (selected(); as book) {
+    <aside class="library-book" aria-label="Ausgewähltes Buch" aria-live="polite">
+      <h2 [title]="book.title">{{ book.title }}</h2>
+      @if (book.subtitle) {
+        <p class="library-book-subtitle" [title]="book.subtitle">{{ book.subtitle }}</p>
+      }
+      @if (book.author) {
+        <p class="library-book-author" [title]="book.author">{{ book.author }}</p>
+      }
+      <div class="library-book-meta">
+        @if (book.publisher) {
+          <span [title]="book.publisher">{{ book.publisher }}</span>
+        }
+        @if (book.numPages > 0) {
+          <span>{{ book.numPages }} Seiten</span>
+        }
+      </div>
+      @if (inspecting()) {
+        <p class="library-book-hint">Neben das Buch klicken oder Esc zum Zurückstellen.</p>
+      }
+      <div class="library-book-actions">
+        @if (inspecting()) {
+          <button type="button" (click)="rotate(-0.2)">Nach links drehen</button>
+          <button type="button" (click)="rotate(0.2)">Nach rechts drehen</button>
+          <button type="button" (click)="zoom(5)">Verkleinern</button>
+          <button type="button" (click)="zoom(-5)">Vergrößern</button>
+          <button type="button" (click)="returnBook()">Zurück ins Regal</button>
+        } @else {
+          <button type="button" (click)="inspectBook()">Buch betrachten</button>
+        }
+        <button type="button" (click)="openDetails()">Details öffnen</button>
+      </div>
+    </aside>
+  }
+</section>
