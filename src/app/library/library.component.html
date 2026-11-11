@@ -73,28 +73,36 @@
 
   @if (selected(); as book) {
     <aside class="library-book" aria-label="Ausgewähltes Buch" aria-live="polite">
-      <h2>{{ book.title }}</h2>
+      <h2 [title]="book.title">{{ book.title }}</h2>
       @if (book.subtitle) {
-        <p>{{ book.subtitle }}</p>
+        <p class="library-book-subtitle" [title]="book.subtitle">{{ book.subtitle }}</p>
       }
       @if (book.author) {
-        <p>{{ book.author }}</p>
+        <p class="library-book-author" [title]="book.author">{{ book.author }}</p>
       }
-      @if (book.publisher) {
-        <p>Verlag: {{ book.publisher }}</p>
-      }
-      @if (book.numPages > 0) {
-        <p>Seiten: {{ book.numPages }}</p>
-      }
-      <button type="button" (click)="inspectBook()">Buch betrachten</button>
+      <div class="library-book-meta">
+        @if (book.publisher) {
+          <span [title]="book.publisher">{{ book.publisher }}</span>
+        }
+        @if (book.numPages > 0) {
+          <span>{{ book.numPages }} Seiten</span>
+        }
+      </div>
       @if (inspecting()) {
-        <button type="button" (click)="rotate(-0.2)">Nach links drehen</button>
-        <button type="button" (click)="rotate(0.2)">Nach rechts drehen</button>
-        <button type="button" (click)="zoom(5)">Verkleinern</button>
-        <button type="button" (click)="zoom(-5)">Vergrößern</button>
-        <button type="button" (click)="returnBook()">Zurück ins Regal</button>
+        <p class="library-book-hint">Neben das Buch klicken oder Esc zum Zurückstellen.</p>
       }
-      <button type="button" (click)="openDetails()">Details öffnen</button>
+      <div class="library-book-actions">
+        @if (inspecting()) {
+          <button type="button" (click)="rotate(-0.2)">Nach links drehen</button>
+          <button type="button" (click)="rotate(0.2)">Nach rechts drehen</button>
+          <button type="button" (click)="zoom(5)">Verkleinern</button>
+          <button type="button" (click)="zoom(-5)">Vergrößern</button>
+          <button type="button" (click)="returnBook()">Zurück ins Regal</button>
+        } @else {
+          <button type="button" (click)="inspectBook()">Buch betrachten</button>
+        }
+        <button type="button" (click)="openDetails()">Details öffnen</button>
+      </div>
     </aside>
   }
 </section>

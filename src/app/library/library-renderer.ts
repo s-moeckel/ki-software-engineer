@@ -107,8 +107,8 @@ export class LibraryRenderer {
     this.canvas.requestPointerLock?.();
   }
 
-  inspect(): boolean {
-    if (!this.selected || this.held || !this.canReach(this.selected)) return false;
+  inspect(point?: THREE.Vector3): boolean {
+    if (!this.selected || this.held || !this.canReach(this.selected, point)) return false;
     this.stopMovement();
     this.held = this.selected;
     this.held.group.quaternion.copy(this.camera.quaternion);
@@ -455,11 +455,15 @@ export class LibraryRenderer {
   }
 
   private pick(clientX: number, clientY: number): void {
-    if (this.held) return;
     const rect = this.canvas.getBoundingClientRect();
     if (document.pointerLockElement === this.canvas) this.pointer.set(0, 0);
     else this.pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(this.pointer, this.camera);
+    if (this.held) {
+      this.held.group.updateWorldMatrix(true, true);
+      if (!this.raycaster.intersectObject(this.held.group, true).length) this.returnBook();
+      return;
+    }
     const hit = this.raycaster.intersectObjects(
       this.books.map(item => item.group),
       true
@@ -470,7 +474,7 @@ export class LibraryRenderer {
         ? this.books.find(item => item.group === hit.object || item.group.children.includes(hit.object))
         : undefined;
     this.setSelected(found);
-    if (found) this.inspect();
+    if (found) this.inspect(hit.point);
   }
 
   private setSelected(book: BookObject | undefined): void {
@@ -493,10 +497,24 @@ export class LibraryRenderer {
     });
   }
 
-  private canReach(book: BookObject): boolean {
-    const distance = new THREE.Box3().setFromObject(book.group).distanceToPoint(this.camera.position);
-    if (distance > 2) return false;
-    this.raycaster.set(this.camera.position, book.group.position.clone().sub(this.camera.position).normalize());
+  private canReach(book: BookObject, point?: THREE.Vector3): boolean {
+    const bounds = new THREE.Box3().setFromObject(book.group);
+    if (bounds.distanceToPoint(this.camera.position) > 2) return false;
+    if (point) return this.hasFreeSight(book, point);
+    // HTML/keyboard selection has no picked point. Check the exposed spine as well
+    // as the centre: shelf boards can obscure the centre at close range.
+    const center = bounds.getCenter(new THREE.Vector3());
+    const front = this.camera.position.z < center.z ? bounds.min.z + 0.0001 : bounds.max.z - 0.0001;
+    return [
+      center,
+      ...[0.1, 0.5, 0.9].map(
+        height => new THREE.Vector3(center.x, bounds.min.y + (bounds.max.y - bounds.min.y) * height, front)
+      )
+    ].some(target => this.hasFreeSight(book, target));
+  }
+
+  private hasFreeSight(book: BookObject, point: THREE.Vector3): boolean {
+    this.raycaster.set(this.camera.position, point.clone().sub(this.camera.position).normalize());
     const hit = this.raycaster.intersectObjects(
       this.books.map(item => item.group),
       true

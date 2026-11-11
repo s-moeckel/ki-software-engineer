@@ -110,17 +110,22 @@ test('right mouse walks, release outside the scene, Escape and blur stop movemen
   await page.waitForTimeout(200);
   expect(await cameraState(page)).toEqual(stopped);
 
+  await page.getByRole('button', { name: 'Ansicht zurücksetzen' }).click();
+  const reset = await cameraState(page);
   await page.mouse.move(x, y);
   await page.mouse.down({ button: 'right' });
-  await expect.poll(async () => cameraState(page)).not.toEqual(stopped);
+  await expect.poll(async () => cameraState(page)).not.toEqual(reset);
   await page.keyboard.press('Escape');
   const escaped = await cameraState(page);
   await page.waitForTimeout(200);
   expect(await cameraState(page)).toEqual(escaped);
   await page.mouse.up({ button: 'right' });
 
+  await page.getByRole('button', { name: 'Ansicht zurücksetzen' }).click();
+  const beforeBlur = await cameraState(page);
+  await page.mouse.move(x, y);
   await page.mouse.down({ button: 'right' });
-  await expect.poll(async () => cameraState(page)).not.toEqual(escaped);
+  await expect.poll(async () => cameraState(page)).not.toEqual(beforeBlur);
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
   const blurred = await cameraState(page);
   await page.waitForTimeout(200);
@@ -252,6 +257,162 @@ test('clicking a reachable book takes it out and Escape restores book and contro
     )
     .toBeLessThan(0.001);
 });
+
+for (const reducedMotion of ['reduce', 'no-preference'] as const) {
+  test(`clicking beside a held book returns it; book clicks, dragging and controls preserve it (${reducedMotion})`, async ({
+    page
+  }) => {
+    await page.route(`${api}*`, route => route.fulfill({ json: [book] }));
+    await page.setViewportSize({ width: 1000, height: 800 });
+    await page.emulateMedia({ reducedMotion });
+    await page.goto('http://localhost:4200/library');
+    const canvas = page.getByLabel('3D-Bibliothek', { exact: true });
+    await expect(canvas).toBeVisible();
+    await page.evaluate(() => {
+      const renderer = Reflect.get(
+        Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+        'renderer'
+      );
+      renderer.camera.position.set(-2.965, 1.65, -1.3);
+      renderer.camera.lookAt(renderer.books[0].home);
+      renderer.camera.updateMatrixWorld();
+    });
+    const bounds = (await canvas.boundingBox())!;
+    const center = { x: bounds.width / 2, y: bounds.height / 2 };
+    await canvas.click({ position: center });
+    const panel = page.getByRole('complementary', { name: 'Ausgewähltes Buch' });
+    const returnButton = panel.getByRole('button', { name: 'Zurück ins Regal' });
+    await expect(returnButton).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const renderer = Reflect.get(
+            Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+            'renderer'
+          );
+          return renderer.books[0].group.position.distanceTo(renderer.camera.position);
+        })
+      )
+      .toBeCloseTo(0.65, 2);
+
+    await canvas.click({ position: center });
+    await expect(returnButton).toBeVisible();
+    await panel.getByRole('button', { name: 'Nach links drehen' }).click();
+    await expect(returnButton).toBeVisible();
+    // A drag starting beside the book is a rotation gesture, not an outside click.
+    await page.mouse.move(bounds.x + bounds.width - 80, bounds.y + 25);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + bounds.width - 25, bounds.y + 25);
+    await page.mouse.up();
+    await expect(returnButton).toBeVisible();
+
+    await canvas.click({ position: { x: bounds.width - 25, y: 25 } });
+    await expect(returnButton).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const renderer = Reflect.get(
+            Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+            'renderer'
+          );
+          return renderer.books[0].group.position.distanceTo(renderer.books[0].home);
+        })
+      )
+      .toBeLessThan(0.001);
+    await expect(panel.getByRole('heading', { name: book.title, exact: true })).toBeVisible();
+  });
+}
+
+test('book actions fit without an internal scrollbar with long metadata on desktop and mobile', async ({
+  page
+}, testInfo) => {
+  await page.route(`${api}*`, route =>
+    route.fulfill({
+      json: [
+        {
+          ...book,
+          title: 'Learning Path: Learn Web Development with Python and modern application architecture',
+          subtitle: 'A complete practical guide to building and maintaining accessible applications',
+          author: 'Fabrizio Romano, Gaston C. Hillar, Arun Ravindran and additional contributing authors',
+          publisher: 'Packt Publishing with a very long publisher name'
+        }
+      ]
+    })
+  );
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('http://localhost:4200/library');
+  await expect(page.getByLabel('3D-Bibliothek', { exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    const renderer = Reflect.get(
+      Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+      'renderer'
+    );
+    renderer.camera.position.set(-2.965, 1.65, -1.3);
+    renderer.camera.lookAt(renderer.books[0].home);
+    renderer.camera.updateMatrixWorld();
+  });
+  await page.getByRole('complementary', { name: 'Bücherliste' }).getByRole('button').first().click();
+  const panel = page.getByRole('complementary', { name: 'Ausgewähltes Buch' });
+  await panel.getByRole('button', { name: 'Buch betrachten' }).click();
+  await expect(panel.getByRole('button', { name: 'Zurück ins Regal' })).toBeVisible();
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 1000, height: 700 },
+    { width: 390, height: 844 }
+  ]) {
+    await page.setViewportSize(viewport);
+    await panel.scrollIntoViewIfNeeded();
+    expect(
+      await panel.evaluate(
+        element => element.scrollHeight <= element.clientHeight + 1 && element.scrollWidth <= element.clientWidth + 1
+      )
+    ).toBe(true);
+    const bounds = (await panel.boundingBox())!;
+    for (const button of await panel.getByRole('button').all()) {
+      const action = (await button.boundingBox())!;
+      expect(action.y).toBeGreaterThanOrEqual(bounds.y);
+      expect(action.y + action.height).toBeLessThanOrEqual(bounds.y + bounds.height);
+      expect(action.height).toBeGreaterThanOrEqual(44);
+    }
+    await page.screenshot({ path: testInfo.outputPath(`book-panel-${viewport.width}.png`), fullPage: true });
+  }
+});
+
+for (const interaction of ['canvas', 'HTML', 'keyboard'] as const) {
+  test(`a visible part of a nearby book can be taken out even when a shelf board obscures its centre (${interaction})`, async ({
+    page
+  }) => {
+    await page.route(`${api}*`, route => route.fulfill({ json: [book] }));
+    await page.setViewportSize({ width: 1000, height: 800 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('http://localhost:4200/library');
+    const canvas = page.getByLabel('3D-Bibliothek', { exact: true });
+    await expect(canvas).toBeVisible();
+    await page.evaluate(() => {
+      const renderer = Reflect.get(
+        Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+        'renderer'
+      );
+      const home = renderer.books[0].home;
+      renderer.camera.position.set(home.x, 1.65, -1.1);
+      renderer.camera.lookAt(home.x, home.y - 0.09, home.z - 0.08);
+      renderer.camera.updateMatrixWorld();
+    });
+    if (interaction === 'canvas') {
+      const bounds = (await canvas.boundingBox())!;
+      await canvas.click({ position: { x: bounds.width / 2, y: bounds.height / 2 } });
+    } else {
+      await page.getByRole('complementary', { name: 'Bücherliste' }).getByRole('button').first().click();
+      if (interaction === 'HTML') {
+        await page.getByRole('button', { name: 'Buch betrachten', exact: true }).click();
+      } else {
+        await page.keyboard.press('e');
+      }
+    }
+    await expect(page.getByRole('button', { name: 'Zurück ins Regal', exact: true })).toBeVisible();
+  });
+}
 
 test('distant and obstructed books cannot be taken out', async ({ page }) => {
   await page.route(`${api}*`, route => route.fulfill({ json: [book] }));

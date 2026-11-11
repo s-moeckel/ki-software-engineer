@@ -48,6 +48,8 @@ W/A/S/D and Shift remain available for movement and faster walking.
 
 While inspecting a book, walking pauses and the mouse wheel zooms the book
 (up to enlarge, down to reduce). The labelled HTML controls offer the same actions.
+Click elsewhere in the 3D scene to return the book to its shelf. Clicking the held
+book, dragging to rotate it and using its HTML controls keep it in hand.
 Escape first returns a held book, otherwise exits mouse lock; it also stops
 movement. Losing window focus or mouse lock stops movement as well.
 
