@@ -143,7 +143,7 @@ test('mouse wheel zooms only a held book and right mouse cannot walk while inspe
   await page.evaluate(() => {
     const component = Reflect.get(window, 'ng').getComponent(document.querySelector('app-library'));
     const renderer = Reflect.get(component, 'renderer');
-    renderer.camera.position.set(-2.965, 1.65, -1.1);
+    renderer.camera.position.set(-2.965, 1.65, -1.3);
     renderer.camera.lookAt(-2.965, 0.57, -0.12);
   });
   await page
@@ -200,4 +200,144 @@ test('mouse movement respects shelf and wall collisions', async ({ page }) => {
     expect(await cameraState(page)).toEqual(stopped);
     await page.mouse.up({ button: 'right' });
   }
+});
+
+test('clicking a reachable book takes it out and Escape restores book and controls', async ({ page }) => {
+  await page.route(`${api}*`, route => route.fulfill({ json: [book] }));
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await page.goto('http://localhost:4200/library');
+  const canvas = page.getByLabel('3D-Bibliothek', { exact: true });
+  await expect(canvas).toBeVisible();
+  await page.evaluate(() => {
+    const renderer = Reflect.get(
+      Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+      'renderer'
+    );
+    renderer.camera.position.set(-2.965, 1.65, -1.3);
+    renderer.camera.lookAt(renderer.books[0].home);
+    renderer.camera.updateMatrixWorld();
+  });
+  const bounds = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: bounds.width / 2, y: bounds.height / 2 } });
+  const panel = page.getByRole('complementary', { name: 'Ausgewähltes Buch' });
+  await expect(panel.getByRole('button', { name: 'Zurück ins Regal' })).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const renderer = Reflect.get(
+          Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+          'renderer'
+        );
+        return renderer.books[0].group.position.distanceTo(renderer.books[0].home);
+      })
+    )
+    .toBeGreaterThan(0.3);
+  const camera = await cameraState(page);
+  await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + bounds.width / 2 + 40, bounds.y + bounds.height / 2 + 10);
+  await page.mouse.up();
+  expect(await cameraState(page)).toEqual(camera);
+  await page.keyboard.press('Escape');
+  await expect(panel.getByRole('button', { name: 'Zurück ins Regal' })).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const renderer = Reflect.get(
+          Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+          'renderer'
+        );
+        return renderer.books[0].group.position.distanceTo(renderer.books[0].home);
+      })
+    )
+    .toBeLessThan(0.001);
+});
+
+test('distant and obstructed books cannot be taken out', async ({ page }) => {
+  await page.route(`${api}*`, route => route.fulfill({ json: [book] }));
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await page.goto('http://localhost:4200/library');
+  const canvas = page.getByLabel('3D-Bibliothek', { exact: true });
+  await expect(canvas).toBeVisible();
+  await page.evaluate(() => {
+    const renderer = Reflect.get(
+      Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+      'renderer'
+    );
+    renderer.camera.position.set(-2.965, 1.65, -3.6);
+    renderer.camera.lookAt(renderer.books[0].home);
+    renderer.camera.updateMatrixWorld();
+  });
+  const bounds = (await canvas.boundingBox())!;
+  await canvas.click({ position: { x: bounds.width / 2, y: bounds.height / 2 } });
+  const panel = page.getByRole('complementary', { name: 'Ausgewähltes Buch' });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Zurück ins Regal' })).toHaveCount(0);
+  // The same reachable book viewed through the shelf back must still be blocked.
+  await page.evaluate(() => {
+    const renderer = Reflect.get(
+      Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+      'renderer'
+    );
+    renderer.camera.position.set(-2.965, 0.57, 0.9);
+    renderer.camera.lookAt(renderer.books[0].home);
+    renderer.camera.updateMatrixWorld();
+  });
+  await panel.getByRole('button', { name: 'Buch betrachten' }).click();
+  await expect(panel.getByRole('button', { name: 'Zurück ins Regal' })).toHaveCount(0);
+  expect(
+    await page.evaluate(() => {
+      const renderer = Reflect.get(
+        Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+        'renderer'
+      );
+      return renderer.books[0].group.position.distanceTo(renderer.books[0].home);
+    })
+  ).toBe(0);
+});
+
+test('search greys out nonmatches, leaves positions unchanged and restores covers on clear', async ({
+  page
+}, testInfo) => {
+  await page.route(`${api}*`, route =>
+    route.fulfill({ json: [book, { ...book, id: 'other', isbn: 'other', title: 'TypeScript guide' }] })
+  );
+  await page.setViewportSize({ width: 1000, height: 800 });
+  await page.goto('http://localhost:4200/library');
+  await expect(page.getByLabel('3D-Bibliothek', { exact: true })).toBeVisible();
+  const appearance = () =>
+    page.evaluate(() => {
+      const renderer = Reflect.get(
+        Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+        'renderer'
+      );
+      return renderer.books.map(
+        (item: {
+          book: { isbn: string };
+          group: { position: { toArray(): number[] }; scale: { toArray(): number[] } };
+          body: { material: unknown };
+        }) => ({
+          isbn: item.book.isbn,
+          position: item.group.position.toArray(),
+          scale: item.group.scale.toArray(),
+          muted: !Array.isArray(item.body.material)
+        })
+      );
+    });
+  const initial = await appearance();
+  const search = page.getByRole('searchbox', { name: 'Bibliothek durchsuchen' });
+  await search.fill('Angular');
+  await expect
+    .poll(async () => (await appearance()).map((item: { muted: boolean }) => item.muted))
+    .toEqual([false, true]);
+  expect(
+    (await appearance()).map((item: { position: number[]; scale: number[] }) => [item.position, item.scale])
+  ).toEqual(initial.map((item: { position: number[]; scale: number[] }) => [item.position, item.scale]));
+  await page.screenshot({ path: testInfo.outputPath('library-search-muted.png') });
+  await search.fill('no matching book');
+  await expect.poll(async () => (await appearance()).every((item: { muted: boolean }) => item.muted)).toBe(true);
+  await search.fill('');
+  await expect.poll(appearance).toEqual(initial);
+  await search.fill('   ');
+  await expect.poll(appearance).toEqual(initial);
 });

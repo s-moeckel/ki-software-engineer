@@ -13,6 +13,7 @@ export interface LibraryRendererOptions {
   reducedMotion: boolean;
   lowQuality: boolean;
   onSelect: (isbn: string | undefined) => void;
+  onInspectChange: (inspecting: boolean) => void;
   onFailure: () => void;
 }
 
@@ -20,6 +21,8 @@ interface BookObject {
   book: Book;
   group: THREE.Group;
   home: THREE.Vector3;
+  body: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[]>;
+  materials: THREE.MeshStandardMaterial[];
 }
 
 interface BookAnimation {
@@ -53,6 +56,9 @@ export class LibraryRenderer {
   private lastFrame = 0;
   private readonly move = new THREE.Vector3();
   private roomEnd = 8;
+  private searchMatches?: ReadonlySet<string>;
+  private readonly mutedMaterial = new THREE.MeshStandardMaterial({ color: 0x484b4d, roughness: 1 });
+  private readonly roomObjects: THREE.Object3D[] = [];
 
   constructor(host: HTMLElement, layout: readonly LibraryPosition[], options: LibraryRendererOptions) {
     this.options = options;
@@ -82,7 +88,8 @@ export class LibraryRenderer {
   }
 
   setSearchMatches(isbns: ReadonlySet<string>): void {
-    this.books.forEach(item => item.group.scale.setScalar(isbns.has(item.book.isbn) ? 1.08 : 1));
+    this.searchMatches = new Set(isbns);
+    this.books.forEach(item => this.updateAppearance(item));
   }
 
   select(isbn: string): void {
@@ -104,6 +111,10 @@ export class LibraryRenderer {
     if (!this.selected || this.held || !this.canReach(this.selected)) return false;
     this.stopMovement();
     this.held = this.selected;
+    this.held.group.quaternion.copy(this.camera.quaternion);
+    this.held.group.rotateY(Math.PI / 2);
+    this.updateAppearance(this.held);
+    this.options.onInspectChange(true);
     this.options.onSelect(this.held.book.isbn);
     const target = this.camera.position
       .clone()
@@ -116,6 +127,8 @@ export class LibraryRenderer {
     if (!this.held) return;
     const held = this.held;
     this.held = undefined;
+    this.options.onInspectChange(false);
+    this.updateAppearance(held);
     this.animate(held.group, held.home, () => {
       held.group.rotation.set(0, 0, 0);
       this.setSelected(held);
@@ -145,6 +158,10 @@ export class LibraryRenderer {
     this.renderer.setAnimationLoop(null);
     if (document.pointerLockElement === this.canvas) document.exitPointerLock();
     this.disposables.splice(0).forEach(cleanup => cleanup());
+    // Muted meshes temporarily hide their original materials, which still own cover textures.
+    this.books.forEach(book => {
+      book.body.material = book.materials;
+    });
     this.scene.traverse(object => {
       const mesh = object as THREE.Mesh;
       if (mesh.geometry) mesh.geometry.dispose();
@@ -158,6 +175,7 @@ export class LibraryRenderer {
       }
     });
     this.renderer.dispose();
+    this.mutedMaterial.dispose();
     this.renderer.forceContextLoss();
   }
 
@@ -173,6 +191,7 @@ export class LibraryRenderer {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
       mesh.position.set(...position);
       this.scene.add(mesh);
+      this.roomObjects.push(mesh);
       return mesh;
     };
     const floorTexture = this.floorTexture();
@@ -265,19 +284,16 @@ export class LibraryRenderer {
     const spine = new THREE.MeshStandardMaterial({ map: this.spineTexture(item.book), roughness: 0.7 });
     const pages = new THREE.MeshStandardMaterial({ color: 0xe8d9b7, roughness: 1 });
     const cover = new THREE.MeshStandardMaterial({ color: 0x8a6041, roughness: 0.75 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(item.thickness, BOOK_HEIGHT, BOOK_DEPTH), [
-      cover,
-      cover,
-      pages,
-      pages,
-      pages,
-      spine
-    ]);
+    const materials = [cover, cover, pages, pages, pages, spine];
+    const body = new THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[]>(
+      new THREE.BoxGeometry(item.thickness, BOOK_HEIGHT, BOOK_DEPTH),
+      materials
+    );
     group.add(body);
     const home = new THREE.Vector3(...item.position);
     group.position.copy(home);
     this.scene.add(group);
-    this.books.push({ book: item.book, group, home });
+    this.books.push({ book: item.book, group, home, body, materials });
     const coverUrl = item.book.cover?.trim();
     if (coverUrl) {
       new THREE.TextureLoader().load(
@@ -367,6 +383,17 @@ export class LibraryRenderer {
     this.disposables.push(() => this.canvas.removeEventListener('wheel', wheel));
     listen('pointermove', event => {
       this.pointerTravel += Math.abs(event.movementX) + Math.abs(event.movementY);
+      if (this.held) {
+        if (this.dragging || document.pointerLockElement === this.canvas) {
+          const locked = document.pointerLockElement === this.canvas;
+          this.rotate(
+            (locked ? event.movementX : event.clientX - this.lastPointer.x) * 0.01,
+            (locked ? event.movementY : event.clientY - this.lastPointer.y) * 0.01
+          );
+          this.lastPointer.set(event.clientX, event.clientY);
+        }
+        return;
+      }
       if (document.pointerLockElement === this.canvas) {
         this.camera.rotation.y -= event.movementX * 0.002;
         this.camera.rotation.x = Math.max(-1.4, Math.min(1.4, this.camera.rotation.x - event.movementY * 0.002));
@@ -428,6 +455,7 @@ export class LibraryRenderer {
   }
 
   private pick(clientX: number, clientY: number): void {
+    if (this.held) return;
     const rect = this.canvas.getBoundingClientRect();
     if (document.pointerLockElement === this.canvas) this.pointer.set(0, 0);
     else this.pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
@@ -436,27 +464,32 @@ export class LibraryRenderer {
       this.books.map(item => item.group),
       true
     )[0];
-    const found = hit && this.books.find(item => item.group === hit.object || item.group.children.includes(hit.object));
+    const obstruction = this.raycaster.intersectObjects(this.roomObjects, false)[0];
+    const found =
+      hit && (!obstruction || obstruction.distance > hit.distance)
+        ? this.books.find(item => item.group === hit.object || item.group.children.includes(hit.object))
+        : undefined;
     this.setSelected(found);
+    if (found) this.inspect();
   }
 
   private setSelected(book: BookObject | undefined): void {
-    if (this.selected) this.setHighlight(this.selected, false);
+    const previous = this.selected;
     this.selected = book;
-    if (book) this.setHighlight(book, true);
+    if (previous) this.updateAppearance(previous);
+    if (book) this.updateAppearance(book);
     this.options.onSelect(book?.book.isbn);
   }
 
-  private setHighlight(book: BookObject, active: boolean): void {
-    book.group.traverse(object => {
-      const mesh = object as THREE.Mesh;
-      const materials = Array.isArray(mesh.material) ? mesh.material : mesh.material ? [mesh.material] : [];
-      materials.forEach(material => {
-        if (material instanceof THREE.MeshStandardMaterial) {
-          material.emissive.set(active ? 0x5b321b : 0x000000);
-          material.emissiveIntensity = active ? 0.7 : 0;
-        }
-      });
+  private updateAppearance(book: BookObject): void {
+    const muted = this.searchMatches && !this.searchMatches.has(book.book.isbn) && book !== this.held;
+    book.body.material = muted ? this.mutedMaterial : book.materials;
+    const selected = book === this.selected;
+    const match =
+      this.searchMatches && this.searchMatches.size < this.books.length && this.searchMatches.has(book.book.isbn);
+    book.materials.forEach(material => {
+      material.emissive.set(selected || match ? 0x5b321b : 0x000000);
+      material.emissiveIntensity = selected ? 0.7 : match ? 0.3 : 0;
     });
   }
 
@@ -468,7 +501,12 @@ export class LibraryRenderer {
       this.books.map(item => item.group),
       true
     )[0];
-    return !!hit && (hit.object === book.group || book.group.children.includes(hit.object));
+    const obstruction = this.raycaster.intersectObjects(this.roomObjects, false)[0];
+    return (
+      !!hit &&
+      (!obstruction || obstruction.distance > hit.distance) &&
+      (hit.object === book.group || book.group.children.includes(hit.object))
+    );
   }
 
   private animate(object: THREE.Group, target: THREE.Vector3, done?: () => void): void {

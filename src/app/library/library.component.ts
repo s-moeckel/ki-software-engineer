@@ -1,4 +1,14 @@
-import { AfterViewInit, Component, DestroyRef, ElementRef, NgZone, OnDestroy, ViewChild, inject, signal } from '@angular/core';
+import {
+  AfterViewInit,
+  Component,
+  DestroyRef,
+  ElementRef,
+  NgZone,
+  OnDestroy,
+  ViewChild,
+  inject,
+  signal
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription } from 'rxjs';
@@ -44,22 +54,25 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
     this.loading.set(true);
     this.error.set('');
     this.currentRequest?.unsubscribe();
-    this.currentRequest = this.api.getAllBooks().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: books => {
-        this.books.set(books);
-        if (this.selectedIsbn && !books.some(book => book.isbn === this.selectedIsbn)) {
-          this.selectedIsbn = undefined;
-          this.selected.set(undefined);
+    this.currentRequest = this.api
+      .getAllBooks()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: books => {
+          this.books.set(books);
+          if (this.selectedIsbn && !books.some(book => book.isbn === this.selectedIsbn)) {
+            this.selectedIsbn = undefined;
+            this.selected.set(undefined);
+          }
+          this.searchResults.set(searchLibrary(books, this.query()));
+          this.loading.set(false);
+          this.createScene();
+        },
+        error: () => {
+          this.loading.set(false);
+          this.error.set('Die Sammlung ist gerade nicht erreichbar. Bitte erneut versuchen.');
         }
-        this.searchResults.set(searchLibrary(books, this.query()));
-        this.loading.set(false);
-        this.createScene();
-      },
-      error: () => {
-        this.loading.set(false);
-        this.error.set('Die Sammlung ist gerade nicht erreichbar. Bitte erneut versuchen.');
-      }
-    });
+      });
   }
 
   search(value: string): void {
@@ -75,7 +88,7 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
   }
 
   inspectBook(): void {
-    this.inspecting.set(this.renderer?.inspect() ?? false);
+    this.renderer?.inspect();
   }
 
   returnBook(): void {
@@ -117,6 +130,7 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
 
   private createScene(): void {
     this.renderer?.dispose();
+    this.inspecting.set(false);
     this.renderer = undefined;
     this.graphicsError.set(false);
     if (!this.books().length) return;
@@ -127,11 +141,13 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
         const renderer = new LibraryRenderer(this.sceneHost.nativeElement, createLibraryLayout(this.books()), {
           reducedMotion: media.matches,
           lowQuality: this.lowQuality(),
-          onSelect: isbn => this.zone.run(() => {
-            this.selectedIsbn = isbn;
-            this.selected.set(this.books().find(book => book.isbn === isbn));
-          }),
-          onFailure: () => this.zone.run(() => this.graphicsError.set(true))
+          onSelect: isbn =>
+            this.zone.run(() => {
+              this.selectedIsbn = isbn;
+              this.selected.set(this.books().find(book => book.isbn === isbn));
+            }),
+          onFailure: () => this.zone.run(() => this.graphicsError.set(true)),
+          onInspectChange: inspecting => this.zone.run(() => this.inspecting.set(inspecting))
         });
         this.renderer = renderer;
         renderer.setSearchMatches(new Set(this.searchResults().map(book => book.isbn)));
@@ -147,4 +163,3 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
     this.renderer?.dispose();
   }
 }
-
