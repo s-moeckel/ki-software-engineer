@@ -5,6 +5,8 @@ export const BOOK_DEPTH = 0.16;
 export const BOOK_SLOT_WIDTH = 0.07;
 export const SHELF_LEVELS = [0.45, 0.8, 1.15, 1.5] as const;
 export const BOOKS_PER_SHELF = 80;
+export const SHELF_COLUMN_DISTANCE = 4.6;
+export const SHELF_ROW_DISTANCE = 3.4;
 
 export interface LibraryPosition {
   book: Book;
@@ -42,22 +44,21 @@ export function createLibraryLayout(books: readonly Book[]): LibraryPosition[] {
       shelf,
       level,
       slot,
-      position: [column * 2.7 - 2.05 + slot * BOOK_SLOT_WIDTH, SHELF_LEVELS[level] - BOOK_HEIGHT / 2, row * 3.2 - 0.12],
+      position: [
+        (column - 0.5) * SHELF_COLUMN_DISTANCE - 0.665 + slot * BOOK_SLOT_WIDTH,
+        SHELF_LEVELS[level] + BOOK_HEIGHT / 2,
+        row * SHELF_ROW_DISTANCE - 0.12
+      ],
       thickness: bookThickness(book.numPages)
     };
   });
 }
 
 export function searchLibrary(books: readonly Book[], query: string): Book[] {
-  const words = query
-    .trim()
-    .toLocaleLowerCase()
-    .split(/\s+/)
-    .filter(Boolean);
+  const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   if (!words.length) return [...books];
   return books.filter(book => {
     const text = [book.title, book.subtitle, book.author, book.isbn, book.abstract].join(' ').toLocaleLowerCase();
     return words.every(word => text.includes(word));
   });
 }
-

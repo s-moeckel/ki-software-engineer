@@ -1,6 +1,12 @@
 import { expect, test } from '@playwright/test';
 import { Book } from '../src/app/books/book';
-import { bookThickness, createLibraryLayout, searchLibrary } from '../src/app/library/library-data';
+import {
+  BOOK_HEIGHT,
+  SHELF_LEVELS,
+  bookThickness,
+  createLibraryLayout,
+  searchLibrary
+} from '../src/app/library/library-data';
 
 const makeBook = (isbn: string, title: string, author: string, numPages = 100): Book => ({
   id: isbn,
@@ -16,7 +22,9 @@ const makeBook = (isbn: string, title: string, author: string, numPages = 100): 
 });
 
 test('library layout sorts books and assigns all four levels and twenty slots', () => {
-  const books = Array.from({ length: 81 }, (_, index) => makeBook(String(index), `Title ${index}`, index === 80 ? 'A' : 'B'));
+  const books = Array.from({ length: 81 }, (_, index) =>
+    makeBook(String(index), `Title ${index}`, index === 80 ? 'A' : 'B')
+  );
   const layout = createLibraryLayout(books);
 
   expect(layout).toHaveLength(81);
@@ -25,7 +33,14 @@ test('library layout sorts books and assigns all four levels and twenty slots', 
   expect(layout[19].slot).toBe(19);
   expect(layout[80].shelf).toBe(1);
   expect(new Set(layout.slice(0, 80).map(item => item.level))).toEqual(new Set([0, 1, 2, 3]));
-  expect(new Set(layout.slice(0, 20).map(item => item.position[0]))).toHaveSize(20);
+  expect(new Set(layout.slice(0, 20).map(item => item.position[0])).size).toBe(20);
+  for (const item of layout) {
+    expect(item.position[1] - BOOK_HEIGHT / 2).toBeCloseTo(SHELF_LEVELS[item.level]);
+  }
+  // The central aisle leaves at least two metres between the shelf collision bounds.
+  const leftShelfCenter = (layout[0].position[0] + layout[19].position[0]) / 2;
+  const rightShelfCenter = layout[80].position[0] + 0.665;
+  expect(rightShelfCenter - leftShelfCenter - 1.8).toBeGreaterThanOrEqual(2);
 });
 
 test('book thickness uses the bounded page contract and a fallback', () => {
@@ -43,4 +58,3 @@ test('library search includes subtitle, isbn and abstract without changing order
   expect(searchLibrary(books, 'isbn-a')).toEqual([books[0]]);
   expect(searchLibrary(books, '')).toEqual(books);
 });
-

@@ -1,6 +1,13 @@
 import * as THREE from 'three';
 import { Book } from '../books/book';
-import { BOOK_DEPTH, BOOK_HEIGHT, LibraryPosition, SHELF_LEVELS } from './library-data';
+import {
+  BOOK_DEPTH,
+  BOOK_HEIGHT,
+  LibraryPosition,
+  SHELF_COLUMN_DISTANCE,
+  SHELF_LEVELS,
+  SHELF_ROW_DISTANCE
+} from './library-data';
 
 export interface LibraryRendererOptions {
   reducedMotion: boolean;
@@ -43,6 +50,7 @@ export class LibraryRenderer {
   private disposed = false;
   private lastFrame = 0;
   private readonly move = new THREE.Vector3();
+  private roomEnd = 8;
 
   constructor(host: HTMLElement, layout: readonly LibraryPosition[], options: LibraryRendererOptions) {
     this.options = options;
@@ -51,10 +59,15 @@ export class LibraryRenderer {
     this.renderer.setClearColor(0x100b08);
     this.canvas = this.renderer.domElement;
     this.canvas.setAttribute('aria-label', '3D-Bibliothek');
+    // This canvas is created outside Angular's template and has no scoped style attribute.
+    Object.assign(this.canvas.style, { width: '100%', height: '100%', display: 'block', touchAction: 'none' });
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.25;
     host.replaceChildren(this.canvas);
-    this.scene.fog = new THREE.Fog(0x100b08, 15, 55);
-    this.camera.position.set(0, 1.65, -2.2);
+    this.scene.fog = new THREE.Fog(0x302b23, 14, 40);
+    this.renderer.setClearColor(0x302b23);
     this.camera.rotation.order = 'YXZ';
+    this.reset();
     this.addRoom(layout);
     layout.forEach(item => this.addBook(item));
     this.listen();
@@ -76,8 +89,8 @@ export class LibraryRenderer {
   }
 
   reset(): void {
-    this.camera.position.set(0, 1.65, -2.2);
-    this.camera.rotation.set(0, 0, 0);
+    this.camera.position.set(0, 1.65, -3.6);
+    this.camera.rotation.set(-0.08, Math.PI, 0);
   }
 
   requestPointerLock(): void {
@@ -144,42 +157,117 @@ export class LibraryRenderer {
   }
 
   private addRoom(layout: readonly LibraryPosition[]): void {
-    const wood = new THREE.MeshStandardMaterial({ color: 0x3d2112, roughness: 0.82 });
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(30, 30),
-      new THREE.MeshStandardMaterial({ color: 0x5b321b, roughness: 0.95 })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    this.scene.add(floor);
-    const ceiling = new THREE.HemisphereLight(0xffd7a0, 0x160b07, 2.1);
-    this.scene.add(ceiling);
-    const light = new THREE.PointLight(0xffb35c, 35, 14, 2);
-    light.position.set(0, 3.5, 1);
-    this.scene.add(light);
     const shelves = Math.max(1, Math.ceil(layout.length / 80));
+    this.roomEnd = Math.max(7, Math.ceil(shelves / 2) * SHELF_ROW_DISTANCE + 1);
+    const depth = this.roomEnd + 5;
+    const center = (this.roomEnd - 5) / 2;
+    const wood = new THREE.MeshStandardMaterial({ color: 0x38291f, roughness: 0.65 });
+    const trim = new THREE.MeshStandardMaterial({ color: 0x84623b, roughness: 0.5, metalness: 0.35 });
+    const plaster = new THREE.MeshStandardMaterial({ color: 0x726b57, roughness: 1 });
+    const box = (size: [number, number, number], position: [number, number, number], material: THREE.Material) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
+      mesh.position.set(...position);
+      this.scene.add(mesh);
+      return mesh;
+    };
+    const floorTexture = this.floorTexture();
+    floorTexture.repeat.set(4, depth / 3);
+    box([9, 0.08, depth], [0, -0.04, center], new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 0.7 }));
+    box([9, 0.08, depth], [0, 3.4, center], plaster);
+    for (const x of [-4.5, 4.5]) {
+      box([0.15, 3.4, depth], [x, 1.7, center], plaster);
+      box([0.2, 0.22, depth], [x, 0.11, center], wood);
+      box([0.25, 0.16, depth], [x, 3.22, center], trim);
+    }
+    box([9, 3.4, 0.15], [0, 1.7, this.roomEnd], plaster);
+    box([9, 0.24, 0.2], [0, 0.12, this.roomEnd - 0.1], wood);
+    // A woven runner leads into the room without obstructing the shelves.
+    box([1.6, 0.012, depth - 1], [0, 0.008, center], new THREE.MeshStandardMaterial({ color: 0x344944, roughness: 1 }));
+    for (const x of [-0.73, 0.73]) box([0.025, 0.014, depth - 1], [x, 0.01, center], trim);
+    this.scene.add(new THREE.HemisphereLight(0xffecd3, 0x554b38, 2.4));
+    const daylight = new THREE.DirectionalLight(0xffebcb, 2.2);
+    daylight.position.set(-3, 5, -4);
+    this.scene.add(daylight);
+    const glow = new THREE.MeshStandardMaterial({ color: 0xffdf9f, emissive: 0xffbc60, emissiveIntensity: 2 });
+    for (let z = -1.5; z < this.roomEnd; z += SHELF_ROW_DISTANCE) {
+      box([1.1, 0.05, 0.4], [0, 3.28, z], trim);
+      box([0.95, 0.025, 0.28], [0, 3.24, z], glow);
+      const lamp = new THREE.PointLight(0xffd6a0, 12, 6, 2);
+      lamp.position.set(0, 2.9, z);
+      this.scene.add(lamp);
+      for (const x of [-4.39, 4.39]) {
+        box([0.06, 0.8, 0.34], [x, 2.05, z], trim);
+        box([0.07, 0.55, 0.23], [x, 2.05, z], glow);
+      }
+    }
     for (let shelf = 0; shelf < shelves; shelf++) {
       const row = Math.floor(shelf / 2);
       const column = shelf % 2;
-      const x = column * 2.7 - 1.35;
-      const z = row * 3.2;
-      const back = new THREE.Mesh(new THREE.BoxGeometry(1.65, 1.9, 0.12), wood);
-      back.position.set(x, 1.05, z + 0.11);
-      this.scene.add(back);
-      this.collisions.push(new THREE.Box3().setFromObject(back));
+      const x = (column - 0.5) * SHELF_COLUMN_DISTANCE;
+      const z = row * SHELF_ROW_DISTANCE;
+      box([1.65, 1.9, 0.09], [x, 1.05, z + 0.14], wood);
+      for (const side of [-0.79, 0.79]) box([0.09, 1.9, 0.48], [x + side, 1.05, z - 0.05], wood);
+      box([1.8, 0.12, 0.55], [x, 2.02, z - 0.05], wood);
+      box([1.8, 0.12, 0.55], [x, 0.16, z - 0.05], wood);
+      box([1.72, 0.025, 0.025], [x, 1.95, z - 0.33], trim);
+      this.collisions.push(
+        new THREE.Box3(new THREE.Vector3(x - 0.9, 0, z - 0.32), new THREE.Vector3(x + 0.9, 2.1, z + 0.22))
+      );
       SHELF_LEVELS.forEach(level => {
-        const board = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.06, 0.5), wood);
-        board.position.set(x, level - 0.03, z);
-        this.scene.add(board);
+        box([1.6, 0.045, 0.48], [x, level - 0.0225, z - 0.05], wood);
+        box([1.5, 0.012, 0.025], [x, level - 0.055, z - 0.27], glow);
       });
     }
   }
 
+  private floorTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#584331';
+    ctx.fillRect(0, 0, 512, 512);
+    for (let row = 0; row < 8; row++) {
+      for (let column = -1; column < 3; column++) {
+        const x = column * 256 + (row % 2) * 128;
+        ctx.fillStyle = ['#806348', '#73563d', '#8a6b4d', '#765a42'][(row + column + 4) % 4];
+        ctx.fillRect(x + 1, row * 64 + 1, 254, 62);
+        for (let grain = 0; grain < 12; grain++) {
+          ctx.strokeStyle = grain % 2 ? '#ffffff08' : '#20150a12';
+          ctx.beginPath();
+          ctx.moveTo(x + 2, row * 64 + grain * 5 + 2);
+          ctx.bezierCurveTo(
+            x + 70,
+            row * 64 + grain * 5,
+            x + 180,
+            row * 64 + grain * 5 + 6,
+            x + 254,
+            row * 64 + grain * 5 + 2
+          );
+          ctx.stroke();
+        }
+      }
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    texture.anisotropy = Math.min(4, this.renderer.capabilities.getMaxAnisotropy());
+    return texture;
+  }
+
   private addBook(item: LibraryPosition): void {
     const group = new THREE.Group();
-    const spine = new THREE.MeshStandardMaterial({ color: this.colorFor(item.book.isbn), roughness: 0.7 });
+    const spine = new THREE.MeshStandardMaterial({ map: this.spineTexture(item.book), roughness: 0.7 });
     const pages = new THREE.MeshStandardMaterial({ color: 0xe8d9b7, roughness: 1 });
     const cover = new THREE.MeshStandardMaterial({ color: 0x8a6041, roughness: 0.75 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(item.thickness, BOOK_HEIGHT, BOOK_DEPTH), [spine, pages, cover]);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(item.thickness, BOOK_HEIGHT, BOOK_DEPTH), [
+      cover,
+      cover,
+      pages,
+      pages,
+      pages,
+      spine
+    ]);
     group.add(body);
     const home = new THREE.Vector3(...item.position);
     group.position.copy(home);
@@ -198,6 +286,7 @@ export class LibraryRenderer {
         },
         undefined,
         () => {
+          if (this.disposed) return;
           cover.map = this.fallbackCover(item.book);
           cover.needsUpdate = true;
         }
@@ -219,6 +308,25 @@ export class LibraryRenderer {
     context.font = 'bold 14px sans-serif';
     context.fillText(book.title.slice(0, 18), 8, 40, 112);
     return new THREE.CanvasTexture(canvas);
+  }
+
+  private spineTexture(book: Book): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 32;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = `#${this.colorFor(book.isbn).toString(16).padStart(6, '0')}`;
+    ctx.fillRect(0, 0, 32, 256);
+    ctx.fillStyle = '#dbc69c';
+    ctx.fillRect(3, 12, 26, 2);
+    ctx.fillRect(3, 240, 26, 2);
+    ctx.translate(20, 228);
+    ctx.rotate(-Math.PI / 2);
+    ctx.font = '14px Georgia';
+    ctx.fillText(book.title, 0, 0, 200);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
   }
 
   private listen(): void {
@@ -249,6 +357,11 @@ export class LibraryRenderer {
       }
     });
     const key = (event: KeyboardEvent) => {
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest('input, textarea, select, [contenteditable], [role="dialog"]')
+      )
+        return;
       if (event.type === 'keydown') this.keys.add(event.key.toLowerCase());
       else this.keys.delete(event.key.toLowerCase());
       if (event.type === 'keydown' && event.key.toLowerCase() === 'e') this.inspect();
@@ -261,8 +374,12 @@ export class LibraryRenderer {
       () => window.removeEventListener('keyup', key)
     );
     const resize = () => this.resize();
-    window.addEventListener('resize', resize);
-    this.disposables.push(() => window.removeEventListener('resize', resize));
+    const observer = new ResizeObserver(resize);
+    observer.observe(this.canvas.parentElement!);
+    this.disposables.push(() => observer.disconnect());
+    const blur = () => this.keys.clear();
+    window.addEventListener('blur', blur);
+    this.disposables.push(() => window.removeEventListener('blur', blur));
     const lost = (event: Event) => {
       event.preventDefault();
       this.options.onFailure();
@@ -351,9 +468,9 @@ export class LibraryRenderer {
     const next = this.camera.position.clone().add(this.move);
     next.y = 1.65;
     if (
-      Math.abs(next.x) > 14 ||
-      next.z < -3 ||
-      next.z > 18 ||
+      Math.abs(next.x) > 4.15 ||
+      next.z < -4.5 ||
+      next.z > this.roomEnd - 0.4 ||
       this.collisions.some(box => box.clone().expandByScalar(0.25).containsPoint(next))
     )
       return;
@@ -361,8 +478,8 @@ export class LibraryRenderer {
   }
 
   private resize(): void {
-    const width = this.canvas.clientWidth || this.canvas.parentElement?.clientWidth || 1;
-    const height = this.canvas.clientHeight || this.canvas.parentElement?.clientHeight || 1;
+    const width = this.canvas.parentElement?.clientWidth || 1;
+    const height = this.canvas.parentElement?.clientHeight || 1;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
