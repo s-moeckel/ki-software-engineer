@@ -11,7 +11,10 @@ const books = [
   { ...book, isbn: 'second', title: 'SQL essentials', author: 'José Reader', abstract: 'Database design with SQL' },
   { ...book, isbn: 'third', title: 'Advanced Angular', author: book.author }
 ];
-async function setupUniverse(page: Page, options: { fallback?: boolean; mobile?: boolean } = {}): Promise<void> {
+async function setupUniverse(
+  page: Page,
+  options: { fallback?: boolean; mobile?: boolean; books?: typeof books } = {}
+): Promise<void> {
   if (options.mobile) await page.setViewportSize({ width: 390, height: 844 });
   if (options.fallback)
     await page.addInitScript(() => {
@@ -25,7 +28,7 @@ async function setupUniverse(page: Page, options: { fallback?: boolean; mobile?:
     const url = new URL(route.request().url());
     if (url.pathname !== '/books') return route.fallback();
     if (url.pathname === '/books' && !url.search) expect(url.searchParams.has('_limit')).toBe(false);
-    return route.fulfill({ json: books });
+    return route.fulfill({ json: options.books ?? books });
   });
   await page.route(`${api}/${book.isbn}`, route => route.fulfill({ json: book }));
   await page.goto('http://localhost:4200');
@@ -33,6 +36,25 @@ async function setupUniverse(page: Page, options: { fallback?: boolean; mobile?:
   await expect(page.getByRole('heading', { name: 'BookMonkey Universe' })).toBeVisible();
   await expect(page.getByText('Deine Galaxie entsteht')).toBeHidden();
 }
+
+test('uses loaded covers as planet textures and keeps the fallback for failed covers', async ({ page }) => {
+  await page.route('https://covers.invalid/broken.jpg', route => route.abort());
+  const cover =
+    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40"%3E%3Crect width="40" height="40" fill="%23f0c"/%3E%3C/svg%3E';
+  await setupUniverse(page, {
+    books: [
+      { ...book, cover },
+      {
+        ...book,
+        isbn: 'broken-cover',
+        title: 'Broken cover',
+        cover: 'https://covers.invalid/broken.jpg'
+      }
+    ]
+  });
+  await expect(page.locator('.bm-scene canvas')).toHaveAttribute('data-cover-texture-count', '1');
+  await expect(page.getByRole('heading', { name: 'BookMonkey Universe', exact: true })).toBeVisible();
+});
 
 for (const mobile of [false, true]) {
   test(`header switches between Universe and collection${mobile ? ' on mobile' : ''}`, async ({ page }) => {

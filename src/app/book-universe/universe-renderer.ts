@@ -18,6 +18,12 @@ export class UniverseRenderer {
   private readonly dummy = new THREE.Object3D();
   private readonly color = new THREE.Color();
   private readonly time = { value: 0 };
+  private readonly coverLoader = new THREE.TextureLoader();
+  private coverAtlas!: THREE.CanvasTexture;
+  private coverGrid!: number;
+  private coverCellAttribute!: THREE.InstancedBufferAttribute;
+  private coverInstances = new Map<number, number[]>();
+  private loadedCoverCount = 0;
   private stars?: THREE.Points;
   private enterprise?: EnterpriseShip;
   private flightLabel?: HTMLSpanElement;
@@ -79,34 +85,67 @@ export class UniverseRenderer {
       this.controls.addEventListener('start', this.manual);
       this.media.addEventListener('change', this.motionChanged);
       const geometry = new THREE.SphereGeometry(1, 24, 16);
+      this.coverGrid = Math.max(1, Math.ceil(Math.sqrt(galaxy.planets.length)));
+      const atlasCanvas = document.createElement('canvas');
+      atlasCanvas.width = this.coverGrid * 128;
+      atlasCanvas.height = this.coverGrid * 128;
+      this.coverAtlas = new THREE.CanvasTexture(atlasCanvas);
+      this.coverAtlas.colorSpace = THREE.SRGBColorSpace;
+      this.coverAtlas.minFilter = THREE.LinearFilter;
+      this.coverAtlas.magFilter = THREE.LinearFilter;
+      this.coverCellAttribute = new THREE.InstancedBufferAttribute(new Float32Array(galaxy.planets.length), 1);
+      for (let index = 0; index < galaxy.planets.length; index++) this.coverCellAttribute.setX(index, -1);
       const material = new THREE.MeshStandardMaterial({
         roughness: 0.48,
         metalness: 0.25,
+        map: this.coverAtlas,
         emissive: 0xffffff,
         emissiveIntensity: 0.24
       });
       // Procedural bands rotate on the GPU; no per-book textures or frame-by-frame matrix uploads.
       material.onBeforeCompile = shader => {
         shader.uniforms['universeTime'] = this.time;
+        shader.uniforms['universeAtlasGrid'] = { value: this.coverGrid };
         shader.vertexShader = 'uniform float universeTime;\nvarying vec3 universeLocal;\n' + shader.vertexShader;
+        shader.vertexShader =
+          'attribute float universeCoverCell;\nvarying float universeCoverCellValue;\n' + shader.vertexShader;
         shader.vertexShader = shader.vertexShader.replace(
           '#include <begin_vertex>',
-          '#include <begin_vertex>\nuniverseLocal = position;\ntransformed.y += sin(universeTime * 0.6 + instanceMatrix[3].x) * 0.08;'
+          '#include <begin_vertex>\nuniverseLocal = position;\nuniverseCoverCellValue = universeCoverCell;\ntransformed.y += sin(universeTime * 0.6 + instanceMatrix[3].x) * 0.08;'
         );
-        shader.fragmentShader = 'uniform float universeTime;\nvarying vec3 universeLocal;\n' + shader.fragmentShader;
+        shader.fragmentShader =
+          'uniform float universeTime;\nuniform float universeAtlasGrid;\nvarying vec3 universeLocal;\nvarying float universeCoverCellValue;\n' +
+          shader.fragmentShader;
+        shader.fragmentShader = shader.fragmentShader.replace(
+          '#include <map_fragment>',
+          `#ifdef USE_MAP
+          if (universeCoverCellValue >= 0.0) {
+            vec2 universeCell = vec2(
+              mod(universeCoverCellValue, universeAtlasGrid),
+              floor(universeCoverCellValue / universeAtlasGrid)
+            );
+            vec2 universeAtlasUv = (vMapUv + universeCell) / universeAtlasGrid;
+            vec4 sampledDiffuseColor = texture2D(map, universeAtlasUv);
+            diffuseColor *= sampledDiffuseColor;
+          }
+          #endif`
+        );
         shader.fragmentShader = shader.fragmentShader.replace(
           '#include <color_fragment>',
-          `#include <color_fragment>
+          `#ifdef USE_COLOR
+        if (universeCoverCellValue < 0.0) diffuseColor.rgb *= vColor;
+        #endif
         float longitude = atan(universeLocal.z, universeLocal.x) + universeTime * 0.07;
         float bands = sin(universeLocal.y * 19.0 + sin(longitude * 4.0) * 1.2);
         diffuseColor.rgb *= 0.84 + bands * 0.16;`
         );
         shader.fragmentShader = shader.fragmentShader.replace(
           '#include <emissivemap_fragment>',
-          '#include <emissivemap_fragment>\n#ifdef USE_COLOR\ntotalEmissiveRadiance *= vColor.rgb;\n#endif'
+          '#include <emissivemap_fragment>\n#ifdef USE_COLOR\nif (universeCoverCellValue < 0.0) totalEmissiveRadiance *= vColor.rgb;\n#endif'
         );
       };
       this.planets = new THREE.InstancedMesh(geometry, material, galaxy.planets.length);
+      geometry.setAttribute('universeCoverCell', this.coverCellAttribute);
       this.halos = new THREE.InstancedMesh(
         geometry,
         new THREE.MeshBasicMaterial({
@@ -134,6 +173,8 @@ export class UniverseRenderer {
         new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false })
       );
       this.scene.add(this.lines);
+      this.loadCovers();
+      this.renderer.domElement.dataset['coverTextureCount'] = '0';
       this.extent = Math.max(15, ...galaxy.planets.map(p => Math.hypot(...p.position) + p.radius + 5));
       this.addStars();
       for (const cluster of galaxy.clusters) {
@@ -181,6 +222,45 @@ export class UniverseRenderer {
       this.dispose();
       throw error;
     }
+  }
+  private loadCovers(): void {
+    const cells = new Map<string, number>();
+    const instances = new Map<number, number[]>();
+    this.coverInstances = instances;
+    let nextCell = 0;
+    for (const [index, planet] of this.galaxy.planets.entries()) {
+      const url = planet.book.cover?.trim();
+      if (!url) continue;
+      let cell = cells.get(url);
+      if (cell === undefined) {
+        cell = nextCell++;
+        cells.set(url, cell);
+        instances.set(cell, []);
+        this.coverLoader.load(url, texture => this.applyCover(texture, cell!), undefined, () => undefined);
+      }
+      instances.get(cell)!.push(index);
+    }
+  }
+  private applyCover(texture: THREE.Texture, cell: number): void {
+    if (this.disposed) {
+      texture.dispose();
+      return;
+    }
+    const canvas = this.coverAtlas.image as HTMLCanvasElement;
+    const context = canvas.getContext('2d');
+    if (!context) {
+      texture.dispose();
+      return;
+    }
+    const x = (cell % this.coverGrid) * 128;
+    const y = Math.floor(cell / this.coverGrid) * 128;
+    context.drawImage(texture.image, x, y, 128, 128);
+    texture.dispose();
+    for (const index of this.coverInstances.get(cell) ?? []) this.coverCellAttribute.setX(index, cell);
+    this.coverCellAttribute.needsUpdate = true;
+    this.coverAtlas.needsUpdate = true;
+    this.loadedCoverCount++;
+    this.renderer.domElement.dataset['coverTextureCount'] = String(this.loadedCoverCount);
   }
   private listen(type: string, handler: (event: PointerEvent) => void): void {
     const listener = handler as EventListener;
@@ -444,6 +524,7 @@ export class UniverseRenderer {
       if (object instanceof THREE.InstancedMesh) object.dispose();
     });
     resources.forEach(resource => resource.dispose());
+    this.coverAtlas?.dispose();
     this.scene.clear();
     this.enterprise?.dispose();
     this.renderer.dispose();
