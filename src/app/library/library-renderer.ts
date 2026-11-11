@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Book } from '../books/book';
-import { BOOK_HEIGHT, LibraryPosition, SHELF_LEVELS } from './library-data';
+import { BOOK_DEPTH, BOOK_HEIGHT, LibraryPosition, SHELF_LEVELS } from './library-data';
 
 export interface LibraryRendererOptions {
   reducedMotion: boolean;
@@ -88,7 +88,9 @@ export class LibraryRenderer {
     if (!this.selected || this.held || !this.canReach(this.selected)) return false;
     this.held = this.selected;
     this.options.onSelect(this.held.book.isbn);
-    const target = this.camera.position.clone().add(new THREE.Vector3(0, 0, -0.65).applyQuaternion(this.camera.quaternion));
+    const target = this.camera.position
+      .clone()
+      .add(new THREE.Vector3(0, 0, -0.65).applyQuaternion(this.camera.quaternion));
     this.animate(this.held.group, target);
     return true;
   }
@@ -143,7 +145,10 @@ export class LibraryRenderer {
 
   private addRoom(layout: readonly LibraryPosition[]): void {
     const wood = new THREE.MeshStandardMaterial({ color: 0x3d2112, roughness: 0.82 });
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), new THREE.MeshStandardMaterial({ color: 0x5b321b, roughness: 0.95 }));
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(30, 30),
+      new THREE.MeshStandardMaterial({ color: 0x5b321b, roughness: 0.95 })
+    );
     floor.rotation.x = -Math.PI / 2;
     this.scene.add(floor);
     const ceiling = new THREE.HemisphereLight(0xffd7a0, 0x160b07, 2.1);
@@ -182,16 +187,21 @@ export class LibraryRenderer {
     this.books.push({ book: item.book, group, home });
     const coverUrl = item.book.cover?.trim();
     if (coverUrl) {
-      new THREE.TextureLoader().load(coverUrl, texture => {
-        if (this.disposed) return texture.dispose();
-        texture.colorSpace = THREE.SRGBColorSpace;
-        cover.map = texture;
-        cover.color.set(0xffffff);
-        cover.needsUpdate = true;
-      }, undefined, () => {
-        cover.map = this.fallbackCover(item.book);
-        cover.needsUpdate = true;
-      });
+      new THREE.TextureLoader().load(
+        coverUrl,
+        texture => {
+          if (this.disposed) return texture.dispose();
+          texture.colorSpace = THREE.SRGBColorSpace;
+          cover.map = texture;
+          cover.color.set(0xffffff);
+          cover.needsUpdate = true;
+        },
+        undefined,
+        () => {
+          cover.map = this.fallbackCover(item.book);
+          cover.needsUpdate = true;
+        }
+      );
     } else {
       cover.map = this.fallbackCover(item.book);
       cover.needsUpdate = true;
@@ -203,7 +213,7 @@ export class LibraryRenderer {
     canvas.width = 128;
     canvas.height = 192;
     const context = canvas.getContext('2d')!;
-    context.fillStyle = this.colorFor(book.isbn);
+    context.fillStyle = `#${this.colorFor(book.isbn).toString(16).padStart(6, '0')}`;
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.fillStyle = '#fff7e6';
     context.font = 'bold 14px sans-serif';
@@ -222,7 +232,8 @@ export class LibraryRenderer {
     });
     listen('pointerup', event => {
       this.dragging = false;
-      if (Math.abs(event.clientX - this.lastPointer.x) + Math.abs(event.clientY - this.lastPointer.y) < 5) this.pick(event.clientX, event.clientY);
+      if (Math.abs(event.clientX - this.lastPointer.x) + Math.abs(event.clientY - this.lastPointer.y) < 5)
+        this.pick(event.clientX, event.clientY);
     });
     listen('pointermove', event => {
       if (document.pointerLockElement === this.canvas) {
@@ -230,7 +241,10 @@ export class LibraryRenderer {
         this.camera.rotation.x = Math.max(-1.4, Math.min(1.4, this.camera.rotation.x - event.movementY * 0.002));
       } else if (this.dragging) {
         this.camera.rotation.y -= (event.clientX - this.lastPointer.x) * 0.004;
-        this.camera.rotation.x = Math.max(-1.4, Math.min(1.4, this.camera.rotation.x - (event.clientY - this.lastPointer.y) * 0.004));
+        this.camera.rotation.x = Math.max(
+          -1.4,
+          Math.min(1.4, this.camera.rotation.x - (event.clientY - this.lastPointer.y) * 0.004)
+        );
         this.lastPointer.set(event.clientX, event.clientY);
       }
     });
@@ -242,7 +256,10 @@ export class LibraryRenderer {
     };
     window.addEventListener('keydown', key);
     window.addEventListener('keyup', key);
-    this.disposables.push(() => window.removeEventListener('keydown', key), () => window.removeEventListener('keyup', key));
+    this.disposables.push(
+      () => window.removeEventListener('keydown', key),
+      () => window.removeEventListener('keyup', key)
+    );
     const resize = () => this.resize();
     window.addEventListener('resize', resize);
     this.disposables.push(() => window.removeEventListener('resize', resize));
@@ -258,7 +275,10 @@ export class LibraryRenderer {
     const rect = this.canvas.getBoundingClientRect();
     this.pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(this.pointer, this.camera);
-    const hit = this.raycaster.intersectObjects(this.books.map(item => item.group), true)[0];
+    const hit = this.raycaster.intersectObjects(
+      this.books.map(item => item.group),
+      true
+    )[0];
     const found = hit && this.books.find(item => item.group === hit.object || item.group.children.includes(hit.object));
     this.setSelected(found);
   }
@@ -287,7 +307,10 @@ export class LibraryRenderer {
     const distance = new THREE.Box3().setFromObject(book.group).distanceToPoint(this.camera.position);
     if (distance > 2) return false;
     this.raycaster.set(this.camera.position, book.group.position.clone().sub(this.camera.position).normalize());
-    const hit = this.raycaster.intersectObjects(this.books.map(item => item.group), true)[0];
+    const hit = this.raycaster.intersectObjects(
+      this.books.map(item => item.group),
+      true
+    )[0];
     return !!hit && (hit.object === book.group || book.group.children.includes(hit.object));
   }
 
@@ -327,7 +350,13 @@ export class LibraryRenderer {
     this.move.applyAxisAngle(new THREE.Vector3(0, 1, 0), this.camera.rotation.y);
     const next = this.camera.position.clone().add(this.move);
     next.y = 1.65;
-    if (Math.abs(next.x) > 14 || next.z < -3 || next.z > 18 || this.collisions.some(box => box.clone().expandByScalar(0.25).containsPoint(next))) return;
+    if (
+      Math.abs(next.x) > 14 ||
+      next.z < -3 ||
+      next.z > 18 ||
+      this.collisions.some(box => box.clone().expandByScalar(0.25).containsPoint(next))
+    )
+      return;
     this.camera.position.copy(next);
   }
 
@@ -345,4 +374,3 @@ export class LibraryRenderer {
     return new THREE.Color().setHSL((Math.abs(hash) % 360) / 360, 0.45, 0.34).getHex();
   }
 }
-
