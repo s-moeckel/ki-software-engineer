@@ -48,6 +48,7 @@ jobs:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           model: 'gpt-5.6-luna'
           sandbox: workspace-write
+          output-file: ${{ runner.temp }}/implementation-summary.md
           prompt: |
             Implement the issue completely using its acceptance criteria.
             Follow the applicable AGENTS.md instructions and existing project patterns.
@@ -68,6 +69,7 @@ jobs:
             Do not invent failures or claim the implementation is verified.
             Do not run tests, builds, or linters locally. Stay on the prepared branch.
             Summarize the changes, acceptance-criterion coverage and unexecuted checks.
+            Write the final response as a concise pull request description.
             Leave changes in the working tree. Do not stage, commit, or push;
             the next workflow step commits the changes and publishes the branch.
 
@@ -84,3 +86,30 @@ jobs:
             git commit -m "Implement issue #${ISSUE_NUMBER}"
           fi
           git push --set-upstream origin "$BRANCH_NAME"
+
+      - name: Create pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH_NAME: ${{ steps.prepare-branch.outputs.branch_name }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          set -euo pipefail
+          EXISTING_PR=$(gh pr list --repo "$GITHUB_REPOSITORY" \
+            --head "$BRANCH_NAME" --base "$BASE_BRANCH" --state open \
+            --json url --jq '.[0].url // empty')
+          if [ -n "$EXISTING_PR" ]; then
+            printf 'Existing pull request: %s\n' "$EXISTING_PR"
+            exit 0
+          fi
+          if git diff --quiet "origin/$BASE_BRANCH...HEAD"; then
+            echo "No changes relative to the base branch; skipping pull request."
+            exit 0
+          fi
+          cat "$RUNNER_TEMP/implementation-summary.md" > "$RUNNER_TEMP/implementation-pr.md"
+          printf '\n\nCloses #%s\n' "$ISSUE_NUMBER" >> "$RUNNER_TEMP/implementation-pr.md"
+          gh pr create --repo "$GITHUB_REPOSITORY" \
+            --base "$BASE_BRANCH" --head "$BRANCH_NAME" \
+            --title "Implement #${ISSUE_NUMBER}: ${ISSUE_TITLE}" \
+            --body-file "$RUNNER_TEMP/implementation-pr.md"
