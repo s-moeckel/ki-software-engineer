@@ -21,7 +21,10 @@
     <button type="button" (click)="enablePointerLock()">Maussteuerung aktivieren</button>
     <button type="button" (click)="resetView()">Ansicht zurücksetzen</button>
     <button type="button" (click)="setLowQuality()">{{ lowQuality() ? 'Normale Grafik' : 'Reduzierte Grafik' }}</button>
-    <p>W/A/S/D bewegen · Shift schneller · Ziehen blickt · E betrachtet · Escape legt zurück</p>
+    <p>
+      Rechte Maustaste halten: laufen · Ziehen: umsehen · Linksklick: auswählen · Mausrad: Buch zoomen · W/A/S/D bewegen
+      · Shift schneller · E betrachtet · Escape legt zurück / beendet Maussteuerung
+    </p>
   </aside>
 
   @if (loading()) {
@@ -87,8 +90,8 @@
       @if (inspecting()) {
         <button type="button" (click)="rotate(-0.2)">Nach links drehen</button>
         <button type="button" (click)="rotate(0.2)">Nach rechts drehen</button>
-        <button type="button" (click)="zoom(-5)">Verkleinern</button>
-        <button type="button" (click)="zoom(5)">Vergrößern</button>
+        <button type="button" (click)="zoom(5)">Verkleinern</button>
+        <button type="button" (click)="zoom(-5)">Vergrößern</button>
         <button type="button" (click)="returnBook()">Zurück ins Regal</button>
       }
       <button type="button" (click)="openDetails()">Details öffnen</button>

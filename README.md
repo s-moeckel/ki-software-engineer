@@ -37,6 +37,22 @@ system changes, keyboard access, blocked storage, and mobile surfaces in both th
 
 ## The API
 
+### Virtual Library
+
+Open `/library` through the Virtual Library header action. Hold the right mouse
+button over the 3D scene to walk forward; drag to steer. Releasing the button
+stops walking, including when released outside the scene. Left-click selects a
+book. The optional mouse lock enables looking around without holding a button.
+W/A/S/D and Shift remain available for movement and faster walking.
+
+While inspecting a book, walking pauses and the mouse wheel zooms the book
+(up to enlarge, down to reduce). The labelled HTML controls offer the same actions.
+Escape first returns a held book, otherwise exits mouse lock; it also stops
+movement. Losing window focus or mouse lock stops movement as well.
+
+Run `npx playwright test tests/library.spec.ts tests/library-data.spec.ts --project=chromium --workers=1`
+to check layout, mobile actions, mouse movement, stopping and book zoom.
+
 ### BookMonkey Universe
 
 The planet icon in the header opens `/universe`, a lazy-loaded Three.js galaxy of

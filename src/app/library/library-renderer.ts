@@ -44,6 +44,8 @@ export class LibraryRenderer {
   private selected?: BookObject;
   private held?: BookObject;
   private dragging = false;
+  private mouseForward = false;
+  private pointerTravel = 0;
   private lastPointer = new THREE.Vector2();
   private readonly keys = new Set<string>();
   private animation?: BookAnimation;
@@ -89,6 +91,7 @@ export class LibraryRenderer {
   }
 
   reset(): void {
+    this.stopMovement();
     this.camera.position.set(0, 1.65, -3.6);
     this.camera.rotation.set(-0.08, Math.PI, 0);
   }
@@ -99,6 +102,7 @@ export class LibraryRenderer {
 
   inspect(): boolean {
     if (!this.selected || this.held || !this.canReach(this.selected)) return false;
+    this.stopMovement();
     this.held = this.selected;
     this.options.onSelect(this.held.book.isbn);
     const target = this.camera.position
@@ -130,6 +134,7 @@ export class LibraryRenderer {
   }
 
   escape(): void {
+    this.stopMovement();
     if (this.held) this.returnBook();
     else if (document.pointerLockElement === this.canvas) document.exitPointerLock();
   }
@@ -335,15 +340,33 @@ export class LibraryRenderer {
       this.disposables.push(() => this.canvas.removeEventListener(type, handler as EventListener));
     };
     listen('pointerdown', event => {
+      if (event.button !== 0 && event.button !== 2) return;
+      event.preventDefault();
+      this.mouseForward = event.button === 2 && !this.held;
       this.dragging = true;
+      this.pointerTravel = 0;
       this.lastPointer.set(event.clientX, event.clientY);
+      if (document.pointerLockElement !== this.canvas) this.canvas.setPointerCapture(event.pointerId);
     });
     listen('pointerup', event => {
-      this.dragging = false;
-      if (Math.abs(event.clientX - this.lastPointer.x) + Math.abs(event.clientY - this.lastPointer.y) < 5)
-        this.pick(event.clientX, event.clientY);
+      if (event.button === 2) this.mouseForward = false;
+      if (event.button === 0 && this.pointerTravel < 5) this.pick(event.clientX, event.clientY);
+      this.dragging = event.buttons !== 0;
+      if (!event.buttons && this.canvas.hasPointerCapture(event.pointerId))
+        this.canvas.releasePointerCapture(event.pointerId);
     });
+    listen('pointercancel', () => this.stopMovement());
+    listen('lostpointercapture', () => this.stopMovement());
+    listen('contextmenu', event => event.preventDefault());
+    const wheel = (event: WheelEvent) => {
+      if (!this.held || !event.deltaY) return;
+      event.preventDefault();
+      this.zoom(Math.sign(event.deltaY) * 5);
+    };
+    this.canvas.addEventListener('wheel', wheel, { passive: false });
+    this.disposables.push(() => this.canvas.removeEventListener('wheel', wheel));
     listen('pointermove', event => {
+      this.pointerTravel += Math.abs(event.movementX) + Math.abs(event.movementY);
       if (document.pointerLockElement === this.canvas) {
         this.camera.rotation.y -= event.movementX * 0.002;
         this.camera.rotation.x = Math.max(-1.4, Math.min(1.4, this.camera.rotation.x - event.movementY * 0.002));
@@ -357,13 +380,16 @@ export class LibraryRenderer {
       }
     });
     const key = (event: KeyboardEvent) => {
+      if (event.type === 'keyup') {
+        this.keys.delete(event.key.toLowerCase());
+        return;
+      }
       if (
         event.target instanceof HTMLElement &&
         event.target.closest('input, textarea, select, [contenteditable], [role="dialog"]')
       )
         return;
       if (event.type === 'keydown') this.keys.add(event.key.toLowerCase());
-      else this.keys.delete(event.key.toLowerCase());
       if (event.type === 'keydown' && event.key.toLowerCase() === 'e') this.inspect();
       if (event.type === 'keydown' && event.key === 'Escape') this.escape();
     };
@@ -377,11 +403,24 @@ export class LibraryRenderer {
     const observer = new ResizeObserver(resize);
     observer.observe(this.canvas.parentElement!);
     this.disposables.push(() => observer.disconnect());
-    const blur = () => this.keys.clear();
+    const blur = () => this.stopMovement();
     window.addEventListener('blur', blur);
     this.disposables.push(() => window.removeEventListener('blur', blur));
+    const lockChange = () => {
+      if (document.pointerLockElement !== this.canvas) this.stopMovement();
+    };
+    const visibilityChange = () => {
+      if (document.hidden) this.stopMovement();
+    };
+    document.addEventListener('pointerlockchange', lockChange);
+    document.addEventListener('visibilitychange', visibilityChange);
+    this.disposables.push(
+      () => document.removeEventListener('pointerlockchange', lockChange),
+      () => document.removeEventListener('visibilitychange', visibilityChange)
+    );
     const lost = (event: Event) => {
       event.preventDefault();
+      this.stopMovement();
       this.options.onFailure();
     };
     this.canvas.addEventListener('webglcontextlost', lost);
@@ -390,7 +429,8 @@ export class LibraryRenderer {
 
   private pick(clientX: number, clientY: number): void {
     const rect = this.canvas.getBoundingClientRect();
-    this.pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    if (document.pointerLockElement === this.canvas) this.pointer.set(0, 0);
+    else this.pointer.set(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
     this.raycaster.setFromCamera(this.pointer, this.camera);
     const hit = this.raycaster.intersectObjects(
       this.books.map(item => item.group),
@@ -458,7 +498,7 @@ export class LibraryRenderer {
 
   private moveCamera(delta: number): void {
     this.move.set(0, 0, 0);
-    if (this.keys.has('w')) this.move.z -= 1;
+    if (this.keys.has('w') || this.mouseForward) this.move.z -= 1;
     if (this.keys.has('s')) this.move.z += 1;
     if (this.keys.has('a')) this.move.x -= 1;
     if (this.keys.has('d')) this.move.x += 1;
@@ -475,6 +515,12 @@ export class LibraryRenderer {
     )
       return;
     this.camera.position.copy(next);
+  }
+
+  private stopMovement(): void {
+    this.mouseForward = false;
+    this.dragging = false;
+    this.keys.clear();
   }
 
   private resize(): void {
