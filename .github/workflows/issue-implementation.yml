@@ -15,6 +15,15 @@ jobs:
       pull-requests: write
 
     steps:
+      - name: Check Codex model configuration
+        env:
+          CODEX_MODEL: ${{ vars.CODEX_MODEL }}
+        run: |
+          if [ -z "$CODEX_MODEL" ]; then
+            echo "::error::Set the repository variable CODEX_MODEL to a model accessible to the OpenAI project used by OPENAI_API_KEY."
+            exit 1
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -46,6 +55,7 @@ jobs:
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          model: ${{ vars.CODEX_MODEL }}
           sandbox: workspace-write
           prompt: |
             /ci-se-green
