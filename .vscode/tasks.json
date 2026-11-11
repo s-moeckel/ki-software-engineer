@@ -3,8 +3,35 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "type": "npm",
-      "script": "start",
+      "label": "backend: build",
+      "type": "process",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/backend/node_modules/typescript/bin/tsc",
+        "-p",
+        "${workspaceFolder}/backend/tsconfig.json"
+      ],
+      "problemMatcher": "$tsc"
+    },
+    {
+      "label": "backend: ready",
+      "type": "process",
+      "command": "node",
+      "args": ["${workspaceFolder}/backend/scripts/wait-for-api.mjs"],
+      "problemMatcher": []
+    },
+    {
+      "label": "frontend: ready",
+      "dependsOn": ["npm: start", "backend: ready"],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    },
+    {
+      "label": "npm: start",
+      "type": "process",
+      "command": "node",
+      "args": ["${workspaceFolder}/node_modules/@angular/cli/bin/ng.js", "serve", "--port", "4200"],
+      "options": { "cwd": "${workspaceFolder}" },
       "isBackground": true,
       "problemMatcher": {
         "owner": "typescript",
@@ -12,10 +39,10 @@
         "background": {
           "activeOnStart": true,
           "beginsPattern": {
-            "regexp": "(.*?)"
+            "regexp": "Building|Changes detected|File change detected"
           },
           "endsPattern": {
-            "regexp": "bundle generation complete"
+            "regexp": "Local:.*localhost:4200|Application bundle generation complete"
           }
         }
       }

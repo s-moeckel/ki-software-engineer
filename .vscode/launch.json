@@ -3,11 +3,32 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Backend",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/backend/dist/server.js",
+      "cwd": "${workspaceFolder}/backend",
+      "preLaunchTask": "backend: build",
+      "outFiles": ["${workspaceFolder}/backend/dist/**/*.js"],
+      "skipFiles": ["<node_internals>/**"],
+      "env": { "PORT": "4730" }
+    },
+    {
+      "name": "Frontend (Backend bereit)",
+      "presentation": { "hidden": true },
+      "type": "chrome",
+      "request": "launch",
+      "preLaunchTask": "frontend: ready",
+      "url": "http://localhost:4200/",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
       "name": "ng serve",
       "type": "chrome",
       "request": "launch",
       "preLaunchTask": "npm: start",
-      "url": "http://localhost:4200/"
+      "url": "http://localhost:4200/",
+      "webRoot": "${workspaceFolder}"
     },
     {
       "name": "ng test",
@@ -15,6 +36,13 @@
       "request": "launch",
       "preLaunchTask": "npm: test",
       "url": "http://localhost:9876/debug.html"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Backend + Frontend",
+      "configurations": ["Backend", "Frontend (Backend bereit)"],
+      "stopAll": true
     }
   ]
 }

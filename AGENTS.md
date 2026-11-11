@@ -7,7 +7,7 @@ Diese Datei gilt für das gesamte Repository.
 - BookMonkey ist eine kleine Angular-20-Workshop-SPA mit Standalone-Komponenten, TypeScript im Strict-Modus, RxJS, Tailwind CSS 4 und Angular Material.
 - Lies [ARCHITECTURE.md](./ARCHITECTURE.md) für Architekturgrenzen, Risiken und die Begründung der bestehenden Struktur. Gleiche Aussagen mit dem aktuellen Code ab: Das Review beschreibt teilweise einen älteren Stand.
 - Inzwischen existieren ein Detail-/Bearbeitungsdialog, sichtbare Ladefehler, Request-Abbruch beim erneuten Listenabruf, Lifecycle-Cleanup und projektspezifische Playwright-Tests. Der Toast-Service wird verwendet.
-- [README.md](./README.md) beschreibt Entwicklung, API-Vertrag sowie Detail- und Suchtests. Backend und Datenhaltung liegen außerhalb dieses Repositorys.
+- [README.md](./README.md) beschreibt Entwicklung, API-Vertrag sowie Detail- und Suchtests. `backend/` enthält die eigene kompatible Express-/TypeScript-API mit SQLite-Dateidatenbank; `compose.yaml` bietet optionalen Dockerbetrieb. Details stehen in [backend/README.md](./backend/README.md).
 - Review-Empfehlungen sind mögliche Folgeaufgaben; setze sie nur um, wenn sie zur aktuellen Aufgabe gehören.
 
 ## Struktur und Zuständigkeiten
@@ -32,7 +32,8 @@ Diese Datei gilt für das gesamte Repository.
 ## Entwicklung und Prüfung
 
 - Abhängigkeiten installieren: `npm ci` bei vorhandenem Lockfile; bei beabsichtigten Abhängigkeitsänderungen `npm install` und Lockfile konsistent aktualisieren.
-- Frontend starten: `npm start` unter `http://localhost:4200`. Die separate Entwicklungs-API startet bei Bedarf mit `npx bookmonkey-api` unter `http://localhost:4730`.
+- Frontend starten: `npm start` unter `http://localhost:4200`. Das Backend startet nach `npm ci --prefix backend` mit `npm run backend`; die API läuft unter `http://localhost:4730`. Die bisherige `npx bookmonkey-api` ist eine Alternative und darf nicht gleichzeitig auf demselben Port laufen.
+- Backend prüfen: `npm ci --prefix backend`, `npm run build --prefix backend` und `npm test --prefix backend`. Die Integrationstests verwenden temporäre SQLite-Dateien und verändern den normalen Buchbestand nicht.
 - Nach Änderungen an Anwendungscode oder Build-Konfiguration: `npm run build`.
 - Bei Änderungen an Details, Bearbeitung oder deren Listenintegration: `npx playwright test tests/book-details.spec.ts`. Playwright startet Angular und mockt die API; ein laufendes Backend ist dafür nicht erforderlich. Fehlende Browser lassen sich mit `npx playwright install` installieren.
 - Bei Änderungen an der Suche: `npx playwright test tests/book-search.spec.ts`.

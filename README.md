@@ -37,6 +37,35 @@ system changes, keyboard access, blocked storage, and mobile surfaces in both th
 
 ## The API
 
+### Eigenes SQLite-Backend
+
+Zum gemeinsamen Debuggen in VS Code **Backend + Frontend** auswählen und F5 drücken.
+Setup und Hinweise zu TypeScript-Breakpoints stehen in der
+[Debug-Anleitung](backend/README.md#backend-und-frontend-gemeinsam-debuggen).
+
+Das Backend speichert seine Bücher in der Datei backend/storage/bookmonkey.sqlite.
+Node.js ab Version 24 genügt; eine separate Datenbankinstallation ist nicht erforderlich.
+Vom Repository-Root starten:
+
+```sh
+npm ci --prefix backend
+npm run backend
+```
+
+Die API läuft unter http://localhost:4730; das Frontend startet weiterhin mit
+npm start. Eine laufende bookmonkey-api vorher beenden. Das Frontend benötigt
+keine Anpassung. Beim ersten Start werden 50 echte Science-Fiction-Titel eingespielt;
+weitere Starts erhalten vorhandene Bearbeitungen.
+
+Die [Backend-Anleitung](backend/README.md) beschreibt Start, Sicherung der Datei,
+Konfiguration, API-Vertrag und optionalen Dockerbetrieb. Siehe auch
+[Startbestand erweitern](backend/data/README.md) und
+[abgestimmte Anforderung](docs/requirements/science-fiction-backend.md).
+
+```sh
+npm test --prefix backend
+```
+
 ### Virtual Library
 
 Open `/library` through the Virtual Library header action. Hold the right mouse
@@ -64,7 +93,7 @@ to check layout, mobile actions, mouse movement, stopping and book zoom.
 
 The planet icon in the header opens `/universe`, a lazy-loaded Three.js galaxy of
 the full collection from the existing `getAllBooks()` endpoint. Start the frontend
-with `npm start` and the separate API with `npx bookmonkey-api` as usual. No extra
+with `npm start` and the SQLite backend with `npm run backend`. No extra
 server, API key, example books, or graphics assets are needed.
 
 In Universe, the same header control shows a list icon and returns to the normal
@@ -142,9 +171,8 @@ covers (including the dice faces), empty collections, and retry after a load fai
 Reduced motion keeps both the dice and its cover previews still. Closing cancels pending
 requests and animation timers. Collection requests time out after 15 seconds.
 
-`GET /books` without `q` or `_limit` supplies the full selection pool. Verified
-against the local API on 2026-11-10: 250 books with 250 distinct ISBNs, compared
-with 10 books from `GET /books?_limit=10`.
+`GET /books` without `q` or `_limit` supplies the full selection pool. The local backend
+starts with 50 distinct titles and ISBNs; `GET /books?_limit=10` returns ten books.
 
 Run `npx playwright test tests/book-random.spec.ts` for the mocked dice flow.
 
@@ -152,7 +180,7 @@ Run `npx playwright test tests/book-random.spec.ts` for the mocked dice flow.
 
 Book details use `GET /books/:isbn`; editing sends the full book to `PUT /books/:isbn`,
 including its unchanged `id`, `userId`, and ISBN. `price` remains a string.
-See the [Bookmonkey API documentation](https://www.npmjs.com/package/bookmonkey-api).
+See the [backend API contract](backend/README.md#api-vertrag).
 
 ### ISBN validation
 
@@ -182,21 +210,12 @@ Detail requests time out after 15 seconds. An unconfirmed save keeps the draft v
 and allows closing; reload the saved version before editing again. Reloading discards
 the draft. Closing after an unconfirmed save refreshes the list without claiming success.
 
-The local API was unreachable during implementation. When it is available, verify
-the live contract using a disposable book: GET by ISBN returns a complete `Book`,
-PUT by the same ISBN accepts and returns the complete updated book, preserves
-`id`/`userId` and string `price`, and a subsequent GET returns the saved values.
-Also check a missing ISBN returns HTTP 404 and that browser CORS permits GET/PUT.
+The local backend has integration tests against SQLite for GET/PUT by ISBN,
+complete book responses, preserved identity, string prices, HTTP 404, CORS and
+repeatable initialization. Run them with the backend test command above.
 
-| Command              | Description                                       |
-| -------------------- | ------------------------------------------------- |
-| `npx bookmonkey-api` | Installs and starts the HTTP API "Bookmonkey API" |
-
-The API provides fake data that you can use in your Angular application.
-
-> [!NOTE]
-> The API starts at http://localhost:4730.
-> When you open this page, you’ll find documentation for all endpoints. 🚀
+The former `npx bookmonkey-api` remains an optional alternative at the same address;
+its data is separate from the SQLite file. Run only one backend on port 4730.
 
 ## VS Code
 
