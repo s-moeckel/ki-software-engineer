@@ -113,6 +113,21 @@ test('Enterprise accompanies planet flights, arrives, stops and respects reduced
   await expect(ship).toBeHidden();
 });
 
+test('Enterprise carries the exact inscription on its top and both sides', async ({ page }) => {
+  await page.clock.install();
+  await setupUniverse(page);
+  const canvas = page.locator('.bm-scene canvas');
+  await expect(canvas).toHaveAttribute('data-enterprise-inscription', 'NC-1701 D');
+  await expect(canvas).toHaveAttribute('data-enterprise-inscription-count', '3');
+
+  const input = page.getByRole('combobox', { name: 'Galaxie durchsuchen' });
+  await input.fill('practice');
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100));
+  await input.press('Enter');
+  await page.clock.runFor(300);
+  await expect(page.getByText('USS ENTERPRISE · NCC-1701-D', { exact: true })).toBeVisible();
+});
+
 test('Discovery flies with the Enterprise and removes it on pause and navigation', async ({ page }) => {
   await page.clock.install();
   await setupUniverse(page);

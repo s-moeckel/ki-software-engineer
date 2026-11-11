@@ -2,11 +2,16 @@ import * as THREE from 'three';
 
 /** A small, asset-free Galaxy-class ship, viewed from a chase camera. Forward is -Z. */
 export class EnterpriseShip extends THREE.Group {
+  static readonly inscriptionText = 'NC-1701 D';
+
   private readonly hull = new THREE.MeshStandardMaterial({ color: 0xb6c5d4, metalness: 0.55, roughness: 0.4 });
   private readonly trim = new THREE.MeshStandardMaterial({ color: 0x516479, metalness: 0.65, roughness: 0.35 });
   private readonly warp = new THREE.MeshBasicMaterial({ color: 0x52cfff });
   private readonly bussard = new THREE.MeshBasicMaterial({ color: 0xff543b });
   private readonly deflector = new THREE.MeshBasicMaterial({ color: 0x79baff });
+  private readonly inscriptionMaterial: THREE.MeshBasicMaterial;
+  private readonly inscriptionTexture: THREE.CanvasTexture;
+  private readonly inscriptionGeometry = new THREE.PlaneGeometry(0.72, 0.16);
 
   constructor() {
     super();
@@ -43,8 +48,49 @@ export class EnterpriseShip extends THREE.Group {
       part('Red Bussard collector', sphere, this.bussard, [side * 1.35, 0.14, 0.12], [0.18, 0.15, 0.18]);
       part('Impulse engine', box, this.bussard, [side * 0.48, 0.3, 0.22], [0.28, 0.06, 0.06]);
     }
+    const canvas = document.createElement('canvas');
+    canvas.width = 768;
+    canvas.height = 192;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Enterprise inscription canvas is unavailable');
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.font = '700 112px Arial, sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillStyle = '#d8f1ff';
+    context.shadowColor = '#4ba9dc';
+    context.shadowBlur = 10;
+    context.fillText(EnterpriseShip.inscriptionText, canvas.width / 2, canvas.height / 2);
+    this.inscriptionTexture = new THREE.CanvasTexture(canvas);
+    this.inscriptionTexture.colorSpace = THREE.SRGBColorSpace;
+    this.inscriptionMaterial = new THREE.MeshBasicMaterial({
+      map: this.inscriptionTexture,
+      transparent: true,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    this.addInscription('Enterprise inscription top front', [0, 0.5, -1.2], new THREE.Euler(-Math.PI / 2, 0, 0));
+    this.addInscription(
+      'Enterprise inscription port side',
+      [-1.54, 0.34, -0.8],
+      new THREE.Euler(0, -Math.PI / 2, 0)
+    );
+    this.addInscription(
+      'Enterprise inscription starboard side',
+      [1.54, 0.34, -0.8],
+      new THREE.Euler(0, Math.PI / 2, 0)
+    );
     this.scale.setScalar(0.58);
     this.visible = false;
+  }
+
+  private addInscription(name: string, position: [number, number, number], rotation: THREE.Euler): void {
+    const inscription = new THREE.Mesh(this.inscriptionGeometry, this.inscriptionMaterial);
+    inscription.name = name;
+    inscription.userData['text'] = EnterpriseShip.inscriptionText;
+    inscription.position.set(...position);
+    inscription.rotation.copy(rotation);
+    this.add(inscription);
   }
 
   animate(progress: number, aspect: number): void {
@@ -65,9 +111,22 @@ export class EnterpriseShip extends THREE.Group {
     );
     // Ease into and out of view without changing the existing camera-flight duration.
     const opacity = Math.min(1, progress * 8, (1 - progress) * 8);
-    for (const material of [this.hull, this.trim, this.warp, this.bussard, this.deflector]) {
+    for (const material of [
+      this.hull,
+      this.trim,
+      this.warp,
+      this.bussard,
+      this.deflector,
+      this.inscriptionMaterial
+    ]) {
       material.transparent = true;
       material.opacity = opacity;
     }
+  }
+
+  dispose(): void {
+    this.inscriptionGeometry.dispose();
+    this.inscriptionMaterial?.dispose();
+    this.inscriptionTexture?.dispose();
   }
 }
