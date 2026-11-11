@@ -25,6 +25,101 @@ test('a stalled collection request times out and can be retried', async ({ page 
   expect(requests).toBe(2);
 });
 
+test('starting another inspection completes an in-flight return instead of stranding the first book', async ({
+  page
+}) => {
+  const other = { ...book, id: 'other', isbn: '9780000000001', title: 'TypeScript guide' };
+  await page.route(/^https:\/\//, route => route.abort());
+  await page.route(api, route => route.fulfill({ json: [book, other] }));
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('http://localhost:4200/library');
+  await expect(page.getByLabel('3D-Bibliothek', { exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    const component = Reflect.get(window, 'ng').getComponent(document.querySelector('app-library'));
+    const renderer = Reflect.get(component, 'renderer');
+    renderer.camera.position.set(-2.965, 1.65, -1.3);
+    renderer.camera.lookAt(renderer.books[0].home);
+    component.choose(component.books()[0]);
+    component.inspectBook();
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const renderer = Reflect.get(
+          Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+          'renderer'
+        );
+        return renderer.books[0].group.position.distanceTo(renderer.camera.position);
+      })
+    )
+    .toBeCloseTo(0.65, 2);
+  // Execute the rapid sequence in one browser turn so the 260 ms return cannot finish naturally.
+  const state = await page.evaluate(() => {
+    const component = Reflect.get(window, 'ng').getComponent(document.querySelector('app-library'));
+    const renderer = Reflect.get(component, 'renderer');
+    component.returnBook();
+    component.choose(component.books()[1]);
+    const home = renderer.books[1].home;
+    renderer.camera.position.set(home.x + 0.6, 1.65, -1.3);
+    renderer.camera.lookAt(home);
+    component.inspectBook();
+    return {
+      returnedDistance: renderer.books[0].group.position.distanceTo(renderer.books[0].home),
+      returnedRotation: renderer.books[0].group.rotation.toArray().slice(0, 3),
+      held: renderer.held?.book.isbn,
+      selected: component.selected()?.isbn
+    };
+  });
+  expect(state.held).toBe(other.isbn);
+  expect(state.selected).toBe(other.isbn);
+  expect(state.returnedDistance).toBe(0);
+  expect(state.returnedRotation).toEqual([0, 0, 0]);
+});
+
+test('WebGL context loss stops frames, releases the scene and preserves HTML detail access', async ({ page }) => {
+  await page.route(/^https:\/\//, route => route.abort());
+  await page.route(api, route => route.fulfill({ json: [book] }));
+  await page.route(`${api}/${book.isbn}`, route => route.fulfill({ json: book }));
+  await page.goto('http://localhost:4200/library');
+  await expect(page.getByLabel('3D-Bibliothek', { exact: true })).toBeVisible();
+  const oldRenderer = await page.evaluateHandle(() => {
+    const renderer = Reflect.get(
+      Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
+      'renderer'
+    );
+    const frame = renderer.frame.bind(renderer);
+    renderer.testFrames = 0;
+    renderer.frame = (time: number) => {
+      renderer.testFrames++;
+      frame(time);
+    };
+    renderer.renderer.getContext().getExtension('WEBGL_lose_context').loseContext();
+    return renderer;
+  });
+  await expect(page.getByRole('heading', { name: '3D-Ansicht nicht verfügbar' })).toBeVisible();
+  await expect(page.getByLabel('3D-Bibliothek', { exact: true })).toHaveCount(0);
+  const released = await oldRenderer.evaluate(renderer => ({
+    disposed: renderer.disposed,
+    frames: renderer.testFrames,
+    listeners: renderer.disposables.length,
+    geometries: renderer.renderer.info.memory.geometries,
+    textures: renderer.renderer.info.memory.textures
+  }));
+  expect(released.disposed).toBe(true);
+  expect(released.listeners).toBe(0);
+  expect(released.geometries).toBe(0);
+  expect(released.textures).toBe(0);
+  await page.waitForTimeout(200);
+  expect(await oldRenderer.evaluate(renderer => renderer.testFrames)).toBe(released.frames);
+  await page
+    .getByRole('complementary', { name: 'Bücherliste' })
+    .getByRole('button', { name: 'Details öffnen' })
+    .click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('dialog').getByText(book.title, { exact: true })).toBeVisible();
+  await oldRenderer.dispose();
+});
+
 test('a failed reload after saving removes stale scene and data until retry succeeds', async ({ page }) => {
   await page.route(/^https:\/\//, route => route.abort());
   const updated = { ...book, title: 'Saved library title' };

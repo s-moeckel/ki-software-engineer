@@ -115,6 +115,7 @@ export class LibraryRenderer {
 
   inspect(point?: THREE.Vector3): boolean {
     if (!this.selected || this.held || !this.canReach(this.selected, point)) return false;
+    this.finishAnimation();
     this.stopMovement();
     this.held = this.selected;
     this.held.group.quaternion.copy(this.camera.quaternion);
@@ -162,6 +163,8 @@ export class LibraryRenderer {
     if (this.disposed) return;
     this.disposed = true;
     this.renderer.setAnimationLoop(null);
+    this.animation = undefined;
+    this.held = undefined;
     if (document.pointerLockElement === this.canvas) document.exitPointerLock();
     this.disposables.splice(0).forEach(cleanup => cleanup());
     // Muted meshes temporarily hide their original materials, which still own cover textures.
@@ -454,6 +457,7 @@ export class LibraryRenderer {
     const lost = (event: Event) => {
       event.preventDefault();
       this.stopMovement();
+      this.dispose();
       this.options.onFailure();
     };
     this.canvas.addEventListener('webglcontextlost', lost);
@@ -534,12 +538,21 @@ export class LibraryRenderer {
   }
 
   private animate(object: THREE.Group, target: THREE.Vector3, done?: () => void): void {
+    this.finishAnimation();
     if (this.options.reducedMotion) {
       object.position.copy(target);
       done?.();
       return;
     }
     this.animation = { object, target, from: object.position.clone(), started: performance.now(), done };
+  }
+
+  private finishAnimation(): void {
+    const animation = this.animation;
+    this.animation = undefined;
+    if (!animation) return;
+    animation.object.position.copy(animation.target);
+    animation.done?.();
   }
 
   private frame(time: number): void {
@@ -550,9 +563,7 @@ export class LibraryRenderer {
       const progress = Math.min(1, (time - this.animation.started) / 260);
       this.animation.object.position.lerpVectors(this.animation.from, this.animation.target, progress);
       if (progress === 1) {
-        const done = this.animation.done;
-        this.animation = undefined;
-        done?.();
+        this.finishAnimation();
       }
     }
     this.renderer.render(this.scene, this.camera);

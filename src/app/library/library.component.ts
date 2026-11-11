@@ -154,7 +154,13 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
               this.selectedIsbn = isbn;
               this.selected.set(this.books().find(book => book.isbn === isbn));
             }),
-          onFailure: () => this.zone.run(() => this.graphicsError.set(true)),
+          onFailure: () =>
+            this.zone.run(() => {
+              this.renderer = undefined;
+              this.sceneHost.nativeElement.replaceChildren();
+              this.inspecting.set(false);
+              this.graphicsError.set(true);
+            }),
           onInspectChange: inspecting => this.zone.run(() => this.inspecting.set(inspecting))
         });
         this.renderer = renderer;
