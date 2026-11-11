@@ -102,7 +102,7 @@ export class UniverseRenderer {
         emissive: 0xffffff,
         emissiveIntensity: 0.24
       });
-      // Procedural bands rotate on the GPU; no per-book textures or frame-by-frame matrix uploads.
+      // Covers share one atlas; procedural bands remain the fallback for missing covers.
       material.onBeforeCompile = shader => {
         shader.uniforms['universeTime'] = this.time;
         shader.uniforms['universeAtlasGrid'] = { value: this.coverGrid };
@@ -118,14 +118,19 @@ export class UniverseRenderer {
           shader.fragmentShader;
         shader.fragmentShader = shader.fragmentShader.replace(
           '#include <map_fragment>',
-          `#ifdef USE_MAP
+          `vec3 universeCoverColor = vec3(1.0);
+          #ifdef USE_MAP
           if (universeCoverCellValue >= 0.0) {
             vec2 universeCell = vec2(
               mod(universeCoverCellValue, universeAtlasGrid),
-              floor(universeCoverCellValue / universeAtlasGrid)
+              universeAtlasGrid - 1.0 - floor(universeCoverCellValue / universeAtlasGrid)
             );
-            vec2 universeAtlasUv = (vMapUv + universeCell) / universeAtlasGrid;
+            // Canvas rows start at the top; uploaded texture UVs start at the bottom.
+            // Keep linear filtering inside this cover's cell, including at the poles.
+            vec2 universeCoverUv = clamp(vMapUv, 0.0, 1.0) * (127.0 / 128.0) + vec2(0.5 / 128.0);
+            vec2 universeAtlasUv = (universeCoverUv + universeCell) / universeAtlasGrid;
             vec4 sampledDiffuseColor = texture2D(map, universeAtlasUv);
+            universeCoverColor = sampledDiffuseColor.rgb;
             diffuseColor *= sampledDiffuseColor;
           }
           #endif`
@@ -133,15 +138,17 @@ export class UniverseRenderer {
         shader.fragmentShader = shader.fragmentShader.replace(
           '#include <color_fragment>',
           `#ifdef USE_COLOR
-        if (universeCoverCellValue < 0.0) diffuseColor.rgb *= vColor;
+        if (universeCoverCellValue < 0.0) diffuseColor.rgb *= vColor.rgb;
         #endif
-        float longitude = atan(universeLocal.z, universeLocal.x) + universeTime * 0.07;
-        float bands = sin(universeLocal.y * 19.0 + sin(longitude * 4.0) * 1.2);
-        diffuseColor.rgb *= 0.84 + bands * 0.16;`
+        if (universeCoverCellValue < 0.0) {
+          float longitude = atan(universeLocal.z, universeLocal.x) + universeTime * 0.07;
+          float bands = sin(universeLocal.y * 19.0 + sin(longitude * 4.0) * 1.2);
+          diffuseColor.rgb *= 0.84 + bands * 0.16;
+        }`
         );
         shader.fragmentShader = shader.fragmentShader.replace(
           '#include <emissivemap_fragment>',
-          '#include <emissivemap_fragment>\n#ifdef USE_COLOR\nif (universeCoverCellValue < 0.0) totalEmissiveRadiance *= vColor.rgb;\n#endif'
+          '#include <emissivemap_fragment>\ntotalEmissiveRadiance *= universeCoverColor;\n#ifdef USE_COLOR\nif (universeCoverCellValue < 0.0) totalEmissiveRadiance *= vColor.rgb;\n#endif'
         );
       };
       this.planets = new THREE.InstancedMesh(geometry, material, galaxy.planets.length);
@@ -236,12 +243,17 @@ export class UniverseRenderer {
         cell = nextCell++;
         cells.set(url, cell);
         instances.set(cell, []);
-        this.coverLoader.load(url, texture => this.applyCover(texture, cell!), undefined, () => undefined);
+        this.coverLoader.load(
+          url,
+          texture => this.applyCover(texture, cell!),
+          undefined,
+          () => undefined
+        );
       }
       instances.get(cell)!.push(index);
     }
   }
-  private applyCover(texture: THREE.Texture, cell: number): void {
+  private applyCover(texture: THREE.Texture<HTMLImageElement>, cell: number): void {
     if (this.disposed) {
       texture.dispose();
       return;

@@ -70,11 +70,7 @@ export class EnterpriseShip extends THREE.Group {
       depthWrite: false
     });
     this.addInscription('Enterprise inscription top front', [0, 0.5, -1.2], new THREE.Euler(-Math.PI / 2, 0, 0));
-    this.addInscription(
-      'Enterprise inscription port side',
-      [-1.54, 0.34, -0.8],
-      new THREE.Euler(0, -Math.PI / 2, 0)
-    );
+    this.addInscription('Enterprise inscription port side', [-1.54, 0.34, -0.8], new THREE.Euler(0, -Math.PI / 2, 0));
     this.addInscription(
       'Enterprise inscription starboard side',
       [1.54, 0.34, -0.8],
@@ -111,20 +107,13 @@ export class EnterpriseShip extends THREE.Group {
     );
     // Ease into and out of view without changing the existing camera-flight duration.
     const opacity = Math.min(1, progress * 8, (1 - progress) * 8);
-    for (const material of [
-      this.hull,
-      this.trim,
-      this.warp,
-      this.bussard,
-      this.deflector,
-      this.inscriptionMaterial
-    ]) {
+    for (const material of [this.hull, this.trim, this.warp, this.bussard, this.deflector, this.inscriptionMaterial]) {
       material.transparent = true;
       material.opacity = opacity;
     }
   }
 
-  dispose(): void {
+  override dispose(): void {
     this.inscriptionGeometry.dispose();
     this.inscriptionMaterial?.dispose();
     this.inscriptionTexture?.dispose();

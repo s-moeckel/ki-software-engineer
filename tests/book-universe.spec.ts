@@ -38,6 +38,10 @@ async function setupUniverse(
 }
 
 test('uses loaded covers as planet textures and keeps the fallback for failed covers', async ({ page }) => {
+  const shaderErrors: string[] = [];
+  page.on('console', message => {
+    if (message.type() === 'error' && message.text().includes('THREE.WebGLProgram')) shaderErrors.push(message.text());
+  });
   await page.route('https://covers.invalid/broken.jpg', route => route.abort());
   const cover =
     'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="40" height="40"%3E%3Crect width="40" height="40" fill="%23f0c"/%3E%3C/svg%3E';
@@ -53,6 +57,32 @@ test('uses loaded covers as planet textures and keeps the fallback for failed co
     ]
   });
   await expect(page.locator('.bm-scene canvas')).toHaveAttribute('data-cover-texture-count', '1');
+  // A successful download does not prove that the atlas is sampled on the planet.
+  // Inspect rendered pixels: the magenta cover must actually reach the framebuffer.
+  const screenshot = await page
+    .locator('.bm-scene canvas')
+    .screenshot({ path: test.info().outputPath('planet-cover.png') });
+  const coverPixels = await page.evaluate(
+    async data => {
+      const image = new Image();
+      image.src = data;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext('2d')!;
+      context.drawImage(image, 0, 0);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let count = 0;
+      for (let index = 0; index < pixels.length; index += 4) {
+        if (pixels[index] > 140 && pixels[index + 1] < 120 && pixels[index + 2] > 140) count++;
+      }
+      return count;
+    },
+    `data:image/png;base64,${screenshot.toString('base64')}`
+  );
+  expect(coverPixels).toBeGreaterThan(30);
+  expect(shaderErrors).toEqual([]);
   await expect(page.getByRole('heading', { name: 'BookMonkey Universe', exact: true })).toBeVisible();
 });
 
