@@ -1,6 +1,6 @@
 ---
 name: ci-re-review
-description: Re-analyzes a GitHub issue after recent changes for requirement clarity, completeness, and implementation risk; updates an existing analysis comment or adds one titled "🔄 Updated Analysis". Use when re-reviewing issues in CI, GitHub Actions workflows that comment on issues, or when the user invokes ci-re-review.
+description: Re-analyzes a GitHub issue after recent changes for requirement clarity, completeness, and implementation risk; updates or adds an analysis comment and synchronizes the existing requirement-status labels. Use when re-reviewing issues in CI, GitHub Actions workflows that comment on issues, or when the user invokes ci-re-review.
 disable-model-invocation: true
 ---
 
@@ -25,6 +25,13 @@ You review the issue as a **software requirement**: clarity, completeness, and i
 3. **Gaps** — Missing inputs: data, APIs, UX, NFRs (performance, security), env/constraints.
 4. **Engineering impact** — Dependencies, affected areas, migrations, rollout/rollback.
 
+**Synchronize issue labels after successfully creating or updating the analysis comment:**
+- If **SUFFICIENT:** add `ready-for-implementation` and remove `needs-clarification` if present.
+- If **NEEDS IMPROVEMENT:** add `needs-clarification` and remove `ready-for-implementation` if present.
+- These labels already exist. Use their exact names; do not create or rename repository labels. Preserve all other issue labels and leave already-correct labels unchanged.
+- Apply the labels through the GitHub API or CLI on every review, including updates to existing comments. Suggesting labels in the comment alone does not complete the review.
+- Verify the resulting issue labels. If reading the issue, publishing the analysis, or updating labels fails, report what succeeded and what remains incomplete; do not claim that labels were synchronized without verification.
+
 **Comment format (use exactly these sections, keep each section short — bullets preferred):**
 
 ## 🤖 Automated issue analysis
@@ -44,8 +51,8 @@ You review the issue as a **software requirement**: clarity, completeness, and i
 - Risks / open decisions: [bullets]
 
 ### Next steps
-- If **SUFFICIENT:** suggest label `ready-for-implementation` and a feature branch name.
-- If **NEEDS IMPROVEMENT:** suggest label `needs-clarification` and **specific questions** (not generic).
+- If **SUFFICIENT:** suggest a feature branch name.
+- If **NEEDS IMPROVEMENT:** ask **specific questions** (not generic).
 
 ---
 _Automated analysis._
