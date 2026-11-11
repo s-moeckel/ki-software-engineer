@@ -18,11 +18,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Prepare unprivileged Codex user
+        run: |
+          sudo adduser --system --home /home/codex --shell /bin/bash --group codex
+          # Allow traversal of runner-owned parent directories without sudo access.
+          sudo usermod -a -G runner codex
+          # Share the checkout with Codex, including newly created directories.
+          sudo chown -R runner:codex "$GITHUB_WORKSPACE"
+          sudo chmod -R g+rwX "$GITHUB_WORKSPACE"
+          sudo find "$GITHUB_WORKSPACE" -type d -exec chmod g+s {} +
+
       - name: Analyze Issue with OpenAI
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
-          permission-profile: ":workspace"
+          safety-strategy: unprivileged-user
+          codex-user: codex
+          permission-profile: ':workspace'
           prompt: |
             /ci-re-review
                           
