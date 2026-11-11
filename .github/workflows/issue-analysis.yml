@@ -13,10 +13,23 @@ jobs:
     permissions:
       contents: read
       issues: write
+    outputs:
+      ready-for-implementation: ${{ steps.implementation-readiness.outputs.ready }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Read initial implementation readiness
+        id: initial-readiness
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issue } = await github.rest.issues.get({
+              ...context.repo,
+              issue_number: context.issue.number
+            });
+            core.setOutput('ready', issue.labels.some(label => label.name === 'ready-for-implementation'));
 
       - name: Configure Codex GitHub API access
         env:
@@ -53,3 +66,30 @@ jobs:
                           
             REPOSITORY: ${{ github.repository }}
             ISSUE_NUMBER: ${{ github.event.issue.number || github.event.comment.issue_url }}
+
+      # GITHUB_TOKEN label changes do not trigger another issues workflow.
+      - name: Check whether analysis made the issue ready
+        id: implementation-readiness
+        if: steps.initial-readiness.outputs.ready != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: issue } = await github.rest.issues.get({
+              ...context.repo,
+              issue_number: context.issue.number
+            });
+            core.setOutput('ready', issue.state === 'open' && !issue.pull_request &&
+              issue.labels.some(label => label.name === 'ready-for-implementation'));
+
+  implement-issue:
+    needs: analyze-issue
+    if: needs.analyze-issue.outputs.ready-for-implementation == 'true'
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/issue-implementation.yml
+    with:
+      analysis-ready: true
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

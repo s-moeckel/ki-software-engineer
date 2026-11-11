@@ -3,10 +3,19 @@ name: Issue Implementation with Codex
 on:
   issues:
     types: [labeled]
+  workflow_call:
+    inputs:
+      analysis-ready:
+        description: The analysis verified a newly ready issue.
+        type: boolean
+        default: false
+    secrets:
+      OPENAI_API_KEY:
+        required: true
 
 jobs:
   prepare-implementation:
-    if: github.event.label.name == 'ready-for-implementation'
+    if: inputs.analysis-ready == true || github.event.label.name == 'ready-for-implementation'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
