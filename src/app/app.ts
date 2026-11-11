@@ -32,6 +32,15 @@ export class App {
     });
   }
 
+  protected get libraryActive(): boolean {
+    return this.router.isActive('/library', {
+      paths: 'exact',
+      queryParams: 'ignored',
+      matrixParams: 'ignored',
+      fragment: 'ignored'
+    });
+  }
+
   protected cycleTheme(): void {
     this.theme.choose(this.nextTheme[this.theme.preference()]);
   }
