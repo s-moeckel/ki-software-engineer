@@ -80,6 +80,7 @@ test('Enterprise accompanies planet flights, arrives, stops and respects reduced
   await input.press('Enter');
   await page.clock.runFor(300);
   await expect(ship).toBeVisible();
+  await expect(page.locator('.bm-scene canvas')).toHaveAttribute('aria-label', /NC-1701 D/);
   await page.screenshot({ path: test.info().outputPath('enterprise-flight.png') });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.clock.runFor(50);

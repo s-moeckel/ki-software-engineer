@@ -55,7 +55,7 @@ export class UniverseRenderer {
       this.renderer.setClearColor(0x030711, 0);
       this.renderer.domElement.setAttribute(
         'aria-label',
-        'Dreidimensionale Büchergalaxie. Bücher auch über Suche und Buchliste auswählen.'
+        'Dreidimensionale Büchergalaxie mit Enterprise-Beschriftung NC-1701 D. Bücher auch über Suche und Buchliste auswählen.'
       );
       this.host.append(this.renderer.domElement);
       this.enterprise = new EnterpriseShip();
@@ -432,6 +432,7 @@ export class UniverseRenderer {
     this.controls?.dispose();
     this.media.removeEventListener('change', this.motionChanged);
     this.cleanups.forEach(cleanup => cleanup());
+    this.enterprise?.dispose();
     const resources = new Set<THREE.BufferGeometry | THREE.Material>();
     this.scene.traverse(object => {
       if (object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points) {

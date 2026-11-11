@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 
+const ENTERPRISE_INSCRIPTION = 'NC-1701 D';
+
 /** A small, asset-free Galaxy-class ship, viewed from a chase camera. Forward is -Z. */
 export class EnterpriseShip extends THREE.Group {
   private readonly hull = new THREE.MeshStandardMaterial({ color: 0xb6c5d4, metalness: 0.55, roughness: 0.4 });
@@ -7,6 +9,8 @@ export class EnterpriseShip extends THREE.Group {
   private readonly warp = new THREE.MeshBasicMaterial({ color: 0x52cfff });
   private readonly bussard = new THREE.MeshBasicMaterial({ color: 0xff543b });
   private readonly deflector = new THREE.MeshBasicMaterial({ color: 0x79baff });
+  private readonly inscriptionTextures: THREE.CanvasTexture[] = [];
+  private readonly inscriptionMaterials: THREE.MeshBasicMaterial[] = [];
 
   constructor() {
     super();
@@ -43,8 +47,64 @@ export class EnterpriseShip extends THREE.Group {
       part('Red Bussard collector', sphere, this.bussard, [side * 1.35, 0.14, 0.12], [0.18, 0.15, 0.18]);
       part('Impulse engine', box, this.bussard, [side * 0.48, 0.3, 0.22], [0.28, 0.06, 0.06]);
     }
+    this.addInscriptions();
     this.scale.setScalar(0.58);
     this.visible = false;
+  }
+
+  private addInscriptions(): void {
+    const createTexture = (): THREE.CanvasTexture => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 64;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Unable to create the Enterprise inscription texture.');
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.font = 'bold 42px Arial, sans-serif';
+      context.textAlign = 'center';
+      context.textBaseline = 'middle';
+      context.fillStyle = '#d9f3ff';
+      context.shadowColor = '#2b83b5';
+      context.shadowBlur = 5;
+      context.fillText(ENTERPRISE_INSCRIPTION, canvas.width / 2, canvas.height / 2);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      this.inscriptionTextures.push(texture);
+      return texture;
+    };
+    const add = (
+      name: string,
+      position: [number, number, number],
+      rotation: [number, number, number],
+      scale: [number, number, number]
+    ): void => {
+      const material = new THREE.MeshBasicMaterial({
+        map: createTexture(),
+        transparent: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        toneMapped: false
+      });
+      const inscription = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.125), material);
+      inscription.name = name;
+      inscription.position.set(...position);
+      inscription.rotation.set(...rotation);
+      inscription.scale.set(...scale);
+      inscription.userData['text'] = ENTERPRISE_INSCRIPTION;
+      this.add(inscription);
+      this.inscriptionMaterials.push(material);
+    };
+
+    // The three signs are part of the ship group, so every flight transform
+    // keeps them attached to the corresponding hull surfaces.
+    add('Enterprise inscription NC-1701 D (top front)', [0, 0.505, -1.12], [-Math.PI / 2, 0, 0], [0.7, 1, 1]);
+    add('Enterprise inscription NC-1701 D (port side)', [-1.56, 0.34, -0.82], [0, -Math.PI / 2, 0], [0.7, 1, 1]);
+    add('Enterprise inscription NC-1701 D (starboard side)', [1.56, 0.34, -0.82], [0, Math.PI / 2, 0], [0.7, 1, 1]);
+  }
+
+  dispose(): void {
+    this.inscriptionTextures.forEach(texture => texture.dispose());
+    this.inscriptionMaterials.forEach(material => material.dispose());
   }
 
   animate(progress: number, aspect: number): void {
@@ -65,7 +125,14 @@ export class EnterpriseShip extends THREE.Group {
     );
     // Ease into and out of view without changing the existing camera-flight duration.
     const opacity = Math.min(1, progress * 8, (1 - progress) * 8);
-    for (const material of [this.hull, this.trim, this.warp, this.bussard, this.deflector]) {
+    for (const material of [
+      this.hull,
+      this.trim,
+      this.warp,
+      this.bussard,
+      this.deflector,
+      ...this.inscriptionMaterials
+    ]) {
       material.transparent = true;
       material.opacity = opacity;
     }
