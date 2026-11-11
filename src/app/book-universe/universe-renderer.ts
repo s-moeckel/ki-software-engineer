@@ -59,6 +59,8 @@ export class UniverseRenderer {
       );
       this.host.append(this.renderer.domElement);
       this.enterprise = new EnterpriseShip();
+      this.renderer.domElement.dataset['enterpriseInscription'] = EnterpriseShip.inscriptionText;
+      this.renderer.domElement.dataset['enterpriseInscriptionCount'] = '3';
       this.camera.add(this.enterprise);
       this.scene.add(this.camera);
       this.flightLabel = document.createElement('span');
@@ -443,6 +445,7 @@ export class UniverseRenderer {
     });
     resources.forEach(resource => resource.dispose());
     this.scene.clear();
+    this.enterprise?.dispose();
     this.renderer.dispose();
     this.renderer.forceContextLoss();
     this.labels.forEach(label => label.element.remove());
