@@ -92,15 +92,21 @@ export class LibraryRenderer {
     this.books.forEach(item => this.updateAppearance(item));
   }
 
-  select(isbn: string): void {
+  select(isbn: string): boolean {
+    if (this.held && this.held.book.isbn !== isbn) return false;
     const target = this.books.find(item => item.book.isbn === isbn);
-    if (target) this.setSelected(target);
+    if (!target) return false;
+    this.setSelected(target);
+    return true;
   }
 
   reset(): void {
+    this.returnBook();
     this.stopMovement();
     this.camera.position.set(0, 1.65, -3.6);
     this.camera.rotation.set(-0.08, Math.PI, 0);
+    this.camera.fov = 65;
+    this.camera.updateProjectionMatrix();
   }
 
   requestPointerLock(): void {
@@ -131,7 +137,7 @@ export class LibraryRenderer {
     this.updateAppearance(held);
     this.animate(held.group, held.home, () => {
       held.group.rotation.set(0, 0, 0);
-      this.setSelected(held);
+      this.updateAppearance(held);
     });
   }
 

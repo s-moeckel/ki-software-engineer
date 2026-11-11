@@ -145,6 +145,11 @@
 .library-list button:hover {
   background: #d4b68112;
 }
+.library-list button:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+}
 .library-list strong {
   display: block;
   font-size: 12px;

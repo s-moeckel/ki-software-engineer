@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Subscription } from 'rxjs';
+import { Subscription, timeout } from 'rxjs';
 import { BookApiClient } from '../books/book-api-client.service';
 import { BookDialogService } from '../books/book-dialog.service';
 import { Book } from '../books/book';
@@ -56,7 +56,7 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
     this.currentRequest?.unsubscribe();
     this.currentRequest = this.api
       .getAllBooks()
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(timeout(15_000), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: books => {
           this.books.set(books);
@@ -69,6 +69,13 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
           this.createScene();
         },
         error: () => {
+          this.renderer?.dispose();
+          this.renderer = undefined;
+          this.sceneHost.nativeElement.replaceChildren();
+          this.books.set([]);
+          this.searchResults.set([]);
+          this.selected.set(undefined);
+          this.inspecting.set(false);
           this.loading.set(false);
           this.error.set('Die Sammlung ist gerade nicht erreichbar. Bitte erneut versuchen.');
         }
@@ -81,10 +88,11 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
     this.renderer?.setSearchMatches(new Set(this.searchResults().map(book => book.isbn)));
   }
 
-  choose(book: Book): void {
+  choose(book: Book): boolean {
+    if (this.renderer) return this.renderer.select(book.isbn);
     this.selectedIsbn = book.isbn;
     this.selected.set(book);
-    this.renderer?.select(book.isbn);
+    return true;
   }
 
   inspectBook(): void {

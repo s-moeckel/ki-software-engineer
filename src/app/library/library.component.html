@@ -58,11 +58,21 @@
     </h2>
     @for (book of searchResults(); track book.isbn) {
       <div class="library-result">
-        <button type="button" [class.selected]="selected()?.isbn === book.isbn" (click)="choose(book)">
+        <button
+          type="button"
+          [class.selected]="selected()?.isbn === book.isbn"
+          [disabled]="inspecting() && selected()?.isbn !== book.isbn"
+          (click)="choose(book)"
+        >
           <strong>{{ book.title }}</strong
           ><small>{{ book.author }} · {{ book.isbn }}</small>
         </button>
-        <button type="button" class="library-result-details" (click)="choose(book); openDetails()">
+        <button
+          type="button"
+          class="library-result-details"
+          [disabled]="inspecting() && selected()?.isbn !== book.isbn"
+          (click)="choose(book) && openDetails()"
+        >
           Details öffnen
         </button>
       </div>
