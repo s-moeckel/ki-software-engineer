@@ -9,11 +9,12 @@ import { MatInputModule } from '@angular/material/input';
 import { timeout, TimeoutError } from 'rxjs';
 import { Book } from './book';
 import { BookApiClient } from './book-api-client.service';
+import { CachedCoverPipe } from './cached-cover.pipe';
 
 @Component({
   selector: 'app-book-details-dialog',
   standalone: true,
-  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule],
+  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule, CachedCoverPipe],
   templateUrl: './book-details-dialog.component.html',
   styles: `
     :host {

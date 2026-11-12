@@ -1,10 +1,15 @@
 import express, { type ErrorRequestHandler } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
 import { isBook, type Book } from './book.js';
+import { CoverCache } from './cover-cache.js';
 
 const columns = 'id, isbn, title, subtitle, author, publisher, "numPages", price, cover, abstract, "userId"';
 
-export function createApp(database: DatabaseSync, allowedOrigins = ['http://localhost:4200', 'http://127.0.0.1:4200']) {
+export function createApp(
+  database: DatabaseSync,
+  allowedOrigins = ['http://localhost:4200', 'http://127.0.0.1:4200'],
+  coverCache = new CoverCache(database)
+) {
   const app = express();
   app.disable('x-powered-by');
   app.set('query parser', 'extended');
@@ -24,6 +29,24 @@ export function createApp(database: DatabaseSync, allowedOrigins = ['http://loca
     next();
   });
   app.use(express.json({ limit: '128kb' }));
+
+  app.get('/covers', async (req, res) => {
+    const source = req.query['url'];
+    if (typeof source !== 'string' || source.length > 2048) {
+      res.status(400).json({ error: 'Eine gültige Cover-URL ist erforderlich.' });
+      return;
+    }
+    const cover = await coverCache.get(source);
+    if (cover.status === 200) {
+      res.set('Cache-Control', 'public, max-age=86400');
+      res.set('X-Content-Type-Options', 'nosniff');
+      res.type(cover.contentType).send(cover.data);
+    } else {
+      res.set('Retry-After', String(cover.retryAfter));
+      if (cover.status === 404) res.set('Cache-Control', 'public, max-age=300');
+      res.status(cover.status).end();
+    }
+  });
 
   app.get('/health', async (_req, res) => {
     try {

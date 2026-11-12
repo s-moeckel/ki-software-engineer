@@ -144,7 +144,7 @@
   @if (hoverPlanet(); as planet) {
     <div class="bm-tooltip glass" [style.left.px]="tooltip().x" [style.top.px]="tooltip().y" role="tooltip">
       @if (planet.book.cover && !brokenCovers().has(planet.book.isbn)) {
-        <img [src]="planet.book.cover" alt="" (error)="coverFailed(planet.book.isbn)" />
+        <img [src]="planet.book.cover | cachedCover" alt="" (error)="coverFailed(planet.book.isbn)" />
       }
       <div>
         <strong>{{ planet.book.title }}</strong
@@ -161,7 +161,7 @@
       <div class="book-panel-cover">
         @if (planet.book.cover && !brokenCovers().has(planet.book.isbn)) {
           <img
-            [src]="planet.book.cover"
+            [src]="planet.book.cover | cachedCover"
             [alt]="'Cover: ' + planet.book.title"
             (error)="coverFailed(planet.book.isbn)"
           />

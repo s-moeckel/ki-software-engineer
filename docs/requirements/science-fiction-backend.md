@@ -11,7 +11,7 @@ ansehen und bearbeiten kann.
 ## Ziel und Umfang
 
 - Erfolg: Das bestehende Frontend verwendet die eigene API unter `http://localhost:4730`.
-- Enthalten: Liste, Suche, Details, Bearbeitung und etwa 50 echte Science-Fiction-Titel.
+- Enthalten: Liste, Suche, Details, Bearbeitung und 300 echte Science-Fiction-Titel.
 - Das Backend startet über npm und legt die SQLite-Datei selbst an. Docker Compose bleibt optional.
 - Ein wiederholbares Init-Skript ergänzt fehlende Bücher ohne Duplikate und ohne
   vorhandene Bearbeitungen zu überschreiben.

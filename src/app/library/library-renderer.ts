@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Book } from '../books/book';
+import { cachedCoverUrl } from '../books/cached-cover-url';
 import {
   BOOK_DEPTH,
   BOOK_HEIGHT,
@@ -306,7 +307,7 @@ export class LibraryRenderer {
     const coverUrl = item.book.cover?.trim();
     if (coverUrl) {
       new THREE.TextureLoader().load(
-        coverUrl,
+        cachedCoverUrl(coverUrl),
         texture => {
           if (this.disposed) return texture.dispose();
           texture.colorSpace = THREE.SRGBColorSpace;

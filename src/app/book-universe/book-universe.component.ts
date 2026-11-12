@@ -16,6 +16,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subscription, timeout } from 'rxjs';
 import { BookApiClient } from '../books/book-api-client.service';
 import { BookDialogService } from '../books/book-dialog.service';
+import { CachedCoverPipe } from '../books/cached-cover.pipe';
 import {
   Cluster,
   createGalaxy,
@@ -30,7 +31,7 @@ import { UniverseRenderer } from './universe-renderer';
 
 @Component({
   selector: 'app-book-universe',
-  imports: [RouterLink],
+  imports: [RouterLink, CachedCoverPipe],
   templateUrl: './book-universe.component.html',
   styleUrl: './book-universe.component.css',
   encapsulation: ViewEncapsulation.None

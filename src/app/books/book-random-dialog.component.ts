@@ -6,10 +6,11 @@ import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { takeUntil, timeout } from 'rxjs';
 import { Book } from './book';
 import { BookApiClient } from './book-api-client.service';
+import { CachedCoverPipe } from './cached-cover.pipe';
 
 @Component({
   selector: 'app-book-random-dialog',
-  imports: [MatDialogModule, MatButtonModule],
+  imports: [MatDialogModule, MatButtonModule, CachedCoverPipe],
   templateUrl: './book-random-dialog.component.html',
   styleUrl: './book-random-dialog.component.css'
 })

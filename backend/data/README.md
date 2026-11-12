@@ -1,18 +1,30 @@
 # Science-Fiction-Startbestand
 
-`books.json` enthält 50 verschiedene echte Titel: Klassiker, Space Opera, Cyberpunk,
-gesellschaftliche Science-Fiction und neuere Romane. Die Auswahl enthält englische
-Ausgaben mit deutschen, eigens formulierten Kurzbeschreibungen.
+`books.json` enthält 300 verschiedene echte Science-Fiction-Titel: die bisherigen
+50 englischen Ausgaben sowie 250 zusätzlich aufgenommene deutsche Ausgaben.
+Enthalten sind unter anderem Andreas Eschbach, Cliff Allister, Dominik A. Meier,
+Andreas Brandhorst, Phillip P. Peterson, Brandon Q. Morris und Joshua Tree.
 
-ISBN, Verlag und Seitenzahl stammen aus ausgabenspezifischen Open-Library-Einträgen,
-abgerufen am 11. November 2026. `sources.json` dokumentiert für jede ISBN die Quelle.
-Titel sind einheitlich geschrieben; Liu Cixins Name ist romanisiert. Katalogdaten
-können fehlerhaft sein und sind keine Verlagsgarantie.
+Die ursprünglichen 50 Einträge und ihre IDs/ISBNs bleiben unverändert. Ihre
+ausgabenspezifischen Angaben stammen von Open Library (Abruf: 11. November 2026).
+Die 250 Ergänzungen stammen aus dem Katalog der Deutschen Nationalbibliothek
+(Abruf: 12. November 2026): deutschsprachige Buchausgaben mit überprüfter ISBN,
+Verlag und Seitenzahl sowie Science-Fiction-Klassifikation. Pro Titel wird eine
+Ausgabe verwendet. Reihen-/Bandangaben im Titel werden vereinheitlicht.
+`sources.json` enthält für jede ISBN den zugehörigen Katalogeintrag und Abrufdatum.
+
+Die ersten 50 Bücher besitzen eigens formulierte Inhaltsangaben. Die neuen
+Einträge enthalten bibliografische Kurzbeschreibungen mit Reihenangaben und
+gegebenenfalls ausdrücklich gekennzeichneten Katalog-Stichwörtern; sie sind keine
+übernommenen Klappentexte. Seitenzahlen entsprechen der katalogisierten Ausgabe
+und können von gerundeten Verlagsangaben abweichen.
 
 `price` ist bewusst ein leerer String: Es sind keine aktuellen Verkaufspreise
 hinterlegt. Preise können im bestehenden Editor gepflegt werden.
-Cover werden optional über die [Open Library Covers API](https://openlibrary.org/dev/docs/api/covers)
-geladen. Bei fehlenden Bildern oder ohne Internet greift der bestehende Frontend-Fallback.
+Cover werden beim ersten Bedarf über die [Open Library Covers API](https://openlibrary.org/dev/docs/api/covers)
+geladen und im [Backend-Cache](../README.md#cover-cache) dauerhaft in SQLite gespeichert.
+Bereits gespeicherte Cover stehen auch ohne Internet zur Verfügung. Bei fehlenden
+oder noch nicht gespeicherten, nicht erreichbaren Bildern greift der bestehende Frontend-Fallback.
 Die API selbst und die Datenbankinitialisierung benötigen keinen Online-Katalog.
 
 ## Bestand erweitern

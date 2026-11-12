@@ -27,7 +27,7 @@
           <div [class]="'face ' + face">
             @if (faceBooks[index]; as book) {
               @if (coverAvailable(book)) {
-                <img [src]="book.cover" alt="" (error)="coverFailed(book)" />
+                <img [src]="book.cover | cachedCover" alt="" (error)="coverFailed(book)" />
               } @else {
                 <span>Kein Cover verfügbar</span>
               }
@@ -43,7 +43,7 @@
     <div class="result">
       <div class="cover bg-gray-100 dark:bg-gray-800">
         @if (coverAvailable(book)) {
-          <img [src]="book.cover" [alt]="book.title" (error)="coverFailed(book)" />
+          <img [src]="book.cover | cachedCover" [alt]="book.title" (error)="coverFailed(book)" />
         } @else {
           <span>Kein Cover verfügbar</span>
         }

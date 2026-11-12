@@ -1,6 +1,6 @@
 # BookMonkey Backend
 
-Express-/TypeScript-API mit einer einfachen SQLite-Dateidatenbank und 50 echten
+Express-/TypeScript-API mit einer einfachen SQLite-Dateidatenbank und 300 echten
 Science-Fiction-Titeln. Eine separate Datenbankinstallation und Docker werden lokal nicht benötigt.
 Die API bleibt mit dem bestehenden Angular-Frontend kompatibel.
 
@@ -14,7 +14,7 @@ npm run backend
 ```
 
 Das Backend läuft unter http://localhost:4730. Beim ersten Start wird automatisch
-die Datei backend/storage/bookmonkey.sqlite angelegt und mit den 50 Titeln gefüllt.
+die Datei backend/storage/bookmonkey.sqlite angelegt und mit den 300 Titeln gefüllt.
 Weitere Starts erhalten eigene Bearbeitungen. Der Speicherpfad ist unabhängig davon,
 aus welchem Ordner das Backend gestartet wird.
 
@@ -79,12 +79,49 @@ vielen gleichzeitigen Schreibern ist nicht Ziel dieser Variante.
 
 ## Startbestand und Init-Skript
 
-Der [Startbestand](data/README.md) enthält 50 verschiedene englische Titel mit
+Der [Startbestand](data/README.md) enthält 300 verschiedene englische und deutsche Titel mit
 deutschen Kurzbeschreibungen, unter anderem Dune, Foundation, Solaris, Neuromancer,
 The Martian sowie Bücher von Becky Chambers und Ann Leckie.
 [Bibliografische Quellen](data/sources.json) sind mitgeliefert. Verkaufspreise sind
 nicht vorbelegt. Cover kommen optional von Open Library; fehlende Bilder werden
 vom Frontend durch einen Fallback ersetzt.
+
+## Cover-Cache
+
+Open-Library-Cover werden in allen Ansichten über `GET /covers?url=…` geladen.
+Das Backend speichert erfolgreiche Downloads dauerhaft als BLOB in der Tabelle
+`cover_cache` derselben SQLite-Datei. Ein erneuter Aufruf benötigt dann keinen
+externen Abruf, auch nach einem Backend-Neustart. Der Browser darf erfolgreiche
+Bildantworten zusätzlich einen Tag zwischenspeichern.
+
+Der erste Abruf bleibt von Open Library abhängig. Es laufen höchstens vier
+externe Abrufe gleichzeitig und höchstens 90 innerhalb von fünf Minuten,
+einschließlich Weiterleitungen. Gleichzeitige Anfragen derselben URL teilen sich
+einen Download. Das liegt unter dem dokumentierten
+[Limit für ISBN-basierte Cover](https://openlibrary.org/dev/docs/api/covers#rate-limiting).
+Der Cache lädt nur angeforderte Cover, ohne vollständigen Katalog-Download.
+
+Fehlende Bilder (404) werden 24 Stunden vermerkt. Vorübergehende Fehler werden eine
+Minute vermerkt; bei 403/429 pausieren neue externe Abrufe für fünf Minuten.
+Während einer Pause oder bei ausgeschöpftem Abrufbudget bleiben vorhandene
+Cache-Treffer verfügbar; andere Bilder verwenden den bestehenden Fallback.
+Nach Ablauf der Pause beim erneuten Öffnen der Ansicht oder Neuladen erneut versuchen.
+Ein warmer Cache verbessert Folgeladevorgänge; der erstmalige Aufbau für viele Bilder
+unterliegt weiterhin dem Anbieterlimit.
+
+Downloads haben ein Timeout von acht Sekunden pro HTTP-Abruf und ein Größenlimit
+von drei MiB. Es werden nur validierte Open-Library-Cover-URLs und JPEG-, PNG-, GIF-
+oder WebP-Daten akzeptiert. Weiterleitungen werden bis zu drei Schritte lang nur
+zu Open-Library-Covern und den offiziellen Internet-Archive-Cover-ZIP-/CDN-Adressen
+verfolgt. Andere externe URLs, private Hosts und andere Archivdateien können nicht
+über den Endpunkt abgerufen werden.
+
+Die ursprüngliche Cover-URL im Buch und Editor bleibt unverändert. Nur die Anzeige
+verwendet den Cache-Endpunkt; eigene Cover anderer Anbieter behalten ihr bisheriges
+Verhalten. Eine geänderte Quell-URL erzeugt einen neuen Cache-Eintrag. Erfolgreiche
+Cache-Einträge werden nicht automatisch aktualisiert.
+
+## Initialisierung und Erweiterung
 
 Jeder Backendstart initialisiert Schema und Seed in einer Transaktion. Das Skript
 lässt sich auch ausdrücklich ausführen:
@@ -111,6 +148,7 @@ eigene Migrationen.
 | GET /books/:isbn               | Vollständiges Buch anhand der URL-kodierten ISBN                 |
 | PUT /books/:isbn               | Vollständiges Buch speichern und gespeicherten Stand zurückgeben |
 | GET /health                    | HTTP 200 bei verfügbarer Datenbank, sonst 503                    |
+| GET /covers?url=…              | Open-Library-Cover aus SQLite oder begrenzter externer Erstabruf |
 
 q ist eine zusammenhängende Teilzeichenfolge in Titel, Untertitel, Autor, Verlag,
 Beschreibung oder ISBN. Äußere Leerzeichen werden entfernt; Prozentzeichen und
@@ -155,9 +193,15 @@ npm test --prefix backend
 
 Das Testziel baut zunächst das Backend. Tests verwenden eigene temporäre SQLite-Dateien,
 die anschließend entfernt werden; die normale Datenbank bleibt unverändert.
-Sie prüfen Datenformat, 50 eindeutige Titel, ISBN-Prüfsummen, Suche/Limit, Details,
+Sie prüfen Datenformat, 300 eindeutige Titel, ISBN-Prüfsummen, Suche/Limit, Details,
 Speichern, Validierung, CORS, Fehlerantworten, Rollback und Persistenz über
-Prozessneustarts sowie die Init-CLI.
+Prozessneustarts sowie die Init-CLI. Die Cover-Tests prüfen dauerhafte Treffer,
+zusammengefasste Downloads, Limits, Ablauf fehlender Bilder und sichere Fehlerbehandlung
+mit simulierten HTTP-Antworten. Browserprüfungen für die Darstellung und Bearbeitung:
+
+```sh
+npx playwright test tests/book-cover-cache.spec.ts tests/book-details.spec.ts tests/book-random.spec.ts --project=chromium
+```
 
 ## Optional: Docker
 

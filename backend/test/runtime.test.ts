@@ -71,7 +71,7 @@ test('compiled backend initializes on startup and preserves updates across proce
   try {
     await start();
     const books = (await (await fetch(`${baseUrl}/books`)).json()) as Book[];
-    assert.equal(books.length, 50);
+    assert.equal(books.length, 300);
     const edited = { ...books[0]!, title: 'Persistent Dune', price: '9.99' };
     const response = await fetch(`${baseUrl}/books/${edited.isbn}`, {
       method: 'PUT',

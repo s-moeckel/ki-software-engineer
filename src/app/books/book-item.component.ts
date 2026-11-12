@@ -2,11 +2,12 @@ import { CommonModule } from '@angular/common';
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Book } from './book';
+import { CachedCoverPipe } from './cached-cover.pipe';
 
 @Component({
   selector: 'app-book-item',
   standalone: true,
-  imports: [CommonModule, MatButtonModule],
+  imports: [CommonModule, MatButtonModule, CachedCoverPipe],
   template: `
     <div
       class="bg-white dark:bg-gray-900 rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col h-full"
@@ -14,7 +15,7 @@ import { Book } from './book';
       <div class="relative aspect-[3/4] overflow-hidden">
         <img
           *ngIf="book.cover && failedCover !== book.cover"
-          [src]="book.cover"
+          [src]="book.cover | cachedCover"
           [alt]="book.title"
           (error)="failedCover = book.cover"
           class="w-full h-full object-contain bg-gray-100 dark:bg-gray-800"

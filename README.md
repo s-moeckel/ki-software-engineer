@@ -54,8 +54,11 @@ npm run backend
 
 Die API läuft unter http://localhost:4730; das Frontend startet weiterhin mit
 npm start. Eine laufende bookmonkey-api vorher beenden. Das Frontend benötigt
-keine Anpassung. Beim ersten Start werden 50 echte Science-Fiction-Titel eingespielt;
+keine Anpassung. Beim ersten Start werden 300 echte Science-Fiction-Titel eingespielt;
 weitere Starts erhalten vorhandene Bearbeitungen.
+
+Cover werden beim ersten Abruf in derselben SQLite-Datei zwischengespeichert und
+anschließend lokal ausgeliefert, auch nach Neustarts. Siehe [Cover-Cache](backend/README.md#cover-cache).
 
 Die [Backend-Anleitung](backend/README.md) beschreibt Start, Sicherung der Datei,
 Konfiguration, API-Vertrag und optionalen Dockerbetrieb. Siehe auch
@@ -172,7 +175,7 @@ Reduced motion keeps both the dice and its cover previews still. Closing cancels
 requests and animation timers. Collection requests time out after 15 seconds.
 
 `GET /books` without `q` or `_limit` supplies the full selection pool. The local backend
-starts with 50 distinct titles and ISBNs; `GET /books?_limit=10` returns ten books.
+starts with 300 distinct titles and ISBNs; `GET /books?_limit=10` returns ten books.
 
 Run `npx playwright test tests/book-random.spec.ts` for the mocked dice flow.
 

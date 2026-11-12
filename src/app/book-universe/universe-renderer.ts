@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { cameraDistance, Galaxy, Point } from './universe-data';
 import { EnterpriseShip } from './enterprise-ship';
+import { cachedCoverUrl } from '../books/cached-cover-url';
 
 /** Owns all GPU resources and DOM listeners; Angular only receives semantic events. */
 export class UniverseRenderer {
@@ -244,7 +245,7 @@ export class UniverseRenderer {
         cells.set(url, cell);
         instances.set(cell, []);
         this.coverLoader.load(
-          url,
+          cachedCoverUrl(url),
           texture => this.applyCover(texture, cell!),
           undefined,
           () => undefined
