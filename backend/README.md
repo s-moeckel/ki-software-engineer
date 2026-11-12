@@ -1,6 +1,6 @@
 # BookMonkey Backend
 
-Express-/TypeScript-API mit einer einfachen SQLite-Dateidatenbank und 300 echten
+Express-/TypeScript-API mit einer einfachen SQLite-Dateidatenbank und 1000 echten
 Science-Fiction-Titeln. Eine separate Datenbankinstallation und Docker werden lokal nicht benötigt.
 Die API bleibt mit dem bestehenden Angular-Frontend kompatibel.
 
@@ -14,7 +14,7 @@ npm run backend
 ```
 
 Das Backend läuft unter http://localhost:4730. Beim ersten Start wird automatisch
-die Datei backend/storage/bookmonkey.sqlite angelegt und mit den 300 Titeln gefüllt.
+die Datei backend/storage/bookmonkey.sqlite angelegt und mit den 1000 Titeln gefüllt.
 Weitere Starts erhalten eigene Bearbeitungen. Der Speicherpfad ist unabhängig davon,
 aus welchem Ordner das Backend gestartet wird.
 
@@ -79,7 +79,7 @@ vielen gleichzeitigen Schreibern ist nicht Ziel dieser Variante.
 
 ## Startbestand und Init-Skript
 
-Der [Startbestand](data/README.md) enthält 300 verschiedene englische und deutsche Titel mit
+Der [Startbestand](data/README.md) enthält 1000 verschiedene englische und deutsche Titel mit
 deutschen Kurzbeschreibungen, unter anderem Dune, Foundation, Solaris, Neuromancer,
 The Martian sowie Bücher von Becky Chambers und Ann Leckie.
 [Bibliografische Quellen](data/sources.json) sind mitgeliefert. Verkaufspreise sind
@@ -229,7 +229,7 @@ npm test --prefix backend
 
 Das Testziel baut zunächst das Backend. Tests verwenden eigene temporäre SQLite-Dateien,
 die anschließend entfernt werden; die normale Datenbank bleibt unverändert.
-Sie prüfen Datenformat, 300 eindeutige Titel, ISBN-Prüfsummen, Suche/Limit, Details,
+Sie prüfen Datenformat, 1000 eindeutige Titel, ISBN-Prüfsummen, Suche/Limit, Details,
 Speichern, Validierung, CORS, Fehlerantworten, Rollback und Persistenz über
 Prozessneustarts sowie die Init-CLI. Die Cover-Tests prüfen dauerhafte Treffer,
 zusammengefasste Downloads, Limits, Ablauf fehlender Bilder und sichere Fehlerbehandlung

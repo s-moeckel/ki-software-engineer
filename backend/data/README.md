@@ -1,16 +1,22 @@
 # Science-Fiction-Startbestand
 
-`books.json` enthält 300 verschiedene echte Science-Fiction-Titel: die bisherigen
-50 englischen Ausgaben sowie 250 zusätzlich aufgenommene deutsche Ausgaben.
-Enthalten sind unter anderem Andreas Eschbach, Cliff Allister, Dominik A. Meier,
-Andreas Brandhorst, Phillip P. Peterson, Brandon Q. Morris und Joshua Tree.
+`books.json` enthält 1000 verschiedene Science-Fiction-Titel: die ursprünglichen
+50 englischen Ausgaben, 250 bereits ergänzte deutsche Ausgaben und 700 weitere
+Bücher mit Hard-SF-Schwerpunkt. Der SF-Mix umfasst außerdem Space Opera,
+Zukunftsromane und Erzählungen. Enthalten sind unter anderem Brandon Q. Morris,
+Greg Egan, Stephen Baxter, Arthur C. Clarke, Peter Watts, Kim Stanley Robinson,
+Alastair Reynolds, Greg Bear, Larry Niven und Stanisław Lem.
 
-Die ursprünglichen 50 Einträge und ihre IDs/ISBNs bleiben unverändert. Ihre
-ausgabenspezifischen Angaben stammen von Open Library (Abruf: 11. November 2026).
-Die 250 Ergänzungen stammen aus dem Katalog der Deutschen Nationalbibliothek
+Die bisherigen 300 Einträge und ihre IDs/ISBNs bleiben unverändert. Die Angaben
+zu den ursprünglichen 50 Ausgaben stammen von Open Library (Abruf: 11. November
+2026). Die 950 Ergänzungen stammen aus dem Katalog der Deutschen Nationalbibliothek
 (Abruf: 12. November 2026): deutschsprachige Buchausgaben mit überprüfter ISBN,
-Verlag und Seitenzahl sowie Science-Fiction-Klassifikation. Pro Titel wird eine
-Ausgabe verwendet. Reihen-/Bandangaben im Titel werden vereinheitlicht.
+Verlag und Seitenzahl. Die Auswahl berücksichtigt SF-Klassifikationen und bei
+bekannten SF-Autoren auch die Belletristik-Klassifikation des Katalogs.
+ISBNs und normalisierte Titel sind eindeutig; erkennbare alternative Titelfassungen,
+Hörbücher, Sachbücher und reine Sammelausgaben wurden bei der Erweiterung
+herausgefiltert. Eine werkübergreifende Dublettenfreiheit bei Übersetzungen und
+anders betitelten Erzählungssammlungen wird dadurch nicht garantiert.
 `sources.json` enthält für jede ISBN den zugehörigen Katalogeintrag und Abrufdatum.
 
 Die ersten 50 Bücher besitzen eigens formulierte Inhaltsangaben. Die neuen

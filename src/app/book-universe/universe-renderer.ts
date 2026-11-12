@@ -27,6 +27,8 @@ export class UniverseRenderer {
   private loadedCoverCount = 0;
   private stars?: THREE.Points;
   private enterprise?: EnterpriseShip;
+  private readonly flightDirection = new THREE.Vector3();
+  private readonly inverseCameraRotation = new THREE.Quaternion();
   private flightLabel?: HTMLSpanElement;
   private readonly labels: { element: HTMLSpanElement; position: THREE.Vector3; index: number }[] = [];
   private readonly media = matchMedia('(prefers-reduced-motion: reduce)');
@@ -474,11 +476,16 @@ export class UniverseRenderer {
         eased = t * t * (3 - 2 * t);
       this.camera.position.lerpVectors(this.flight.from, this.flight.to, eased);
       this.controls.target.lerpVectors(this.flight.targetFrom, this.flight.target, eased);
-      this.enterprise?.animate(t, this.camera.aspect);
+      // Update camera orientation before converting the world flight path into its local space.
+      this.controls.update();
+      this.flightDirection.subVectors(this.flight.to, this.flight.from);
+      if (this.flightDirection.lengthSq() < 0.000001) this.camera.getWorldDirection(this.flightDirection);
+      this.inverseCameraRotation.copy(this.camera.quaternion).invert();
+      this.flightDirection.normalize().applyQuaternion(this.inverseCameraRotation);
+      this.enterprise?.animate(t, this.camera.aspect, this.flightDirection);
       if (this.flightLabel) this.flightLabel.hidden = !this.enterprise?.visible;
       if (t === 1) this.stopFlight();
-    }
-    this.controls.update();
+    } else this.controls.update();
     this.time.value = this.media.matches ? 0 : now / 1000;
     if (this.stars && !this.media.matches) this.stars.rotation.y = now * 0.000002;
     if (!this.media.matches && this.selected >= 0) {

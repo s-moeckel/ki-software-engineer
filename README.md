@@ -79,7 +79,7 @@ npm run backend
 
 Die API läuft unter http://localhost:4730; das Frontend startet weiterhin mit
 npm start. Eine laufende bookmonkey-api vorher beenden. Das Frontend benötigt
-keine Anpassung. Beim ersten Start werden 300 echte Science-Fiction-Titel eingespielt;
+keine Anpassung. Beim ersten Start werden 1000 echte Science-Fiction-Titel eingespielt;
 weitere Starts erhalten vorhandene Bearbeitungen.
 
 Cover werden beim ersten Abruf in derselben SQLite-Datei zwischengespeichert und
@@ -160,8 +160,10 @@ canvas interaction. Discovery visits clusters and ISBN-sorted books with start,
 pause, resume, previous, next and stop controls; manual camera input and hidden
 tabs pause it. Reduced motion disables rotation, floating and extended flights.
 
-During camera flights, a procedural Galaxy-class USS Enterprise NCC-1701-D appears
-in chase view with an oval saucer, twin glowing warp nacelles and a gentle bank.
+During camera flights, a procedural Enterprise points along the camera's flight path
+with classic proportions: a circular panelled saucer, a cylindrical engineering
+hull, raised twin nacelles with red collectors, a copper deflector and a gentle bank.
+The existing `NC-1701 D` inscription is retained on the saucer and both nacelles.
 It fades out on arrival and disappears on cancellation, Discovery pause/stop or
 navigation. Reduced motion skips the ship animation. The model uses shared Three.js
 geometry and materials, requires no external assets and is disposed with the scene.
@@ -200,7 +202,7 @@ Reduced motion keeps both the dice and its cover previews still. Closing cancels
 requests and animation timers. Collection requests time out after 15 seconds.
 
 `GET /books` without `q` or `_limit` supplies the full selection pool. The local backend
-starts with 300 distinct titles and ISBNs; `GET /books?_limit=10` returns ten books.
+starts with 1000 distinct titles and ISBNs; `GET /books?_limit=10` returns ten books.
 
 Run `npx playwright test tests/book-random.spec.ts` for the mocked dice flow.
 

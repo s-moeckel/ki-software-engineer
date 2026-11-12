@@ -25,6 +25,12 @@ function put(book: unknown): RequestInit {
   return { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(book) };
 }
 
+function matchesQuery(book: Book, query: string): boolean {
+  return [book.title, book.subtitle, book.author, book.publisher, book.abstract, book.isbn].some(value =>
+    value?.toLowerCase().includes(query.toLowerCase())
+  );
+}
+
 async function listen() {
   server = createApp(database).listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -35,10 +41,11 @@ async function listen() {
 
 before(async () => {
   seed = JSON.parse(await readFile(new URL('../data/books.json', import.meta.url), 'utf8')) as Book[];
+  seed.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const inserted = await Promise.all([initializeDatabase(database), initializeDatabase(database)]);
   assert.deepEqual(
     inserted.sort((a, b) => a - b),
-    [0, 300]
+    [0, 1000]
   );
   await listen();
 });
@@ -54,9 +61,9 @@ test('full collection, deterministic limit and Book JSON match the frontend cont
   assert.equal(response.status, 200);
   const books = (await response.json()) as Book[];
   assert.deepEqual(books, seed);
-  assert.equal(books.length, 300);
-  assert.equal(new Set(books.map(book => book.isbn)).size, 300);
-  assert.equal(new Set(books.map(book => book.title)).size, 300);
+  assert.equal(books.length, 1000);
+  assert.equal(new Set(books.map(book => book.isbn)).size, 1000);
+  assert.equal(new Set(books.map(book => book.title)).size, 1000);
   assert.equal(response.headers.get('cache-control'), 'no-store');
   const limited = await (await request('/books?_limit=10')).json();
   assert.deepEqual(limited, seed.slice(0, 10));
@@ -68,8 +75,8 @@ test('all seed ISBNs have valid ISBN-13 check digits and per-edition source link
     isbn: string;
     url: string;
   }[];
-  assert.equal(sources.length, 300);
-  assert.equal(new Set(sources.map(source => source.isbn)).size, 300);
+  assert.equal(sources.length, 1000);
+  assert.equal(new Set(sources.map(source => source.isbn)).size, 1000);
   for (const book of seed) {
     assert.match(book.isbn, /^97[89]\d{10}$/);
     const checksum = [...book.isbn].reduce((sum, char, index) => sum + Number(char) * (index % 2 ? 3 : 1), 0);
@@ -87,8 +94,11 @@ test('all seed ISBNs have valid ISBN-13 check digits and per-edition source link
 
 test('the expanded collection includes and finds the requested German authors', async () => {
   for (const author of ['Andreas Eschbach', 'Cliff Allister', 'Dominik A. Meier']) {
-    const expected = seed.filter(book => book.author.includes(author));
-    assert.ok(expected.length >= 10, `${author}: mehrere verschiedene Titel erwartet`);
+    const expected = seed.filter(book => matchesQuery(book, author));
+    assert.ok(
+      seed.filter(book => book.author.includes(author)).length >= 10,
+      `${author}: mehrere verschiedene Titel erwartet`
+    );
     assert.deepEqual(await (await request(`/books?q=${encodeURIComponent(author)}`)).json(), expected);
   }
   const normalized = seed.map(book =>
@@ -98,10 +108,10 @@ test('the expanded collection includes and finds the requested German authors', 
       .toLowerCase()
       .replace(/[^a-z0-9]/g, '')
   );
-  assert.equal(new Set(normalized).size, 300);
+  assert.equal(new Set(normalized).size, 1000);
 });
 
-test('upgrading the original 50-book database adds 250 books and preserves all existing edits', async () => {
+test('upgrading the existing 300-book database adds 700 books and preserves all existing edits', async () => {
   const existing = openDatabase(':memory:');
   try {
     existing.exec(await readFile(new URL('../db/schema.sql', import.meta.url), 'utf8'));
@@ -109,7 +119,7 @@ test('upgrading the original 50-book database adds 250 books and preserves all e
       `INSERT INTO books (id, isbn, title, subtitle, author, publisher, "numPages", price, cover, abstract, "userId")
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     );
-    for (const book of seed.slice(0, 50)) {
+    for (const book of seed.filter(book => Number(book.id.slice(3)) <= 300)) {
       insert.run(
         book.id,
         book.isbn,
@@ -131,13 +141,16 @@ test('upgrading the original 50-book database adds 250 books and preserves all e
       .prepare('SELECT * FROM books ORDER BY id')
       .all()
       .map(row => ({ ...row }));
-    assert.equal(await initializeDatabase(existing), 250);
+    assert.equal(await initializeDatabase(existing), 700);
     const after = existing
       .prepare('SELECT * FROM books ORDER BY id')
       .all()
       .map(row => ({ ...row }));
-    assert.equal(after.length, 300);
-    assert.deepEqual(after.slice(0, 50), before);
+    assert.equal(after.length, 1000);
+    assert.deepEqual(
+      after.filter(book => Number(String(book['id']).slice(3)) <= 300),
+      before
+    );
     assert.equal(await initializeDatabase(existing), 0);
   } finally {
     existing.close();
@@ -151,7 +164,7 @@ test('search is case-insensitive, includes authors and runs before limiting', as
   assert.deepEqual(await (await request('/books?q=LE%20GUIN&_limit=1')).json(), expected.slice(0, 1));
   assert.deepEqual(
     await (await request('/books?q=solaris')).json(),
-    seed.filter(book => book.title === 'Solaris')
+    seed.filter(book => matchesQuery(book, 'solaris'))
   );
   for (const query of ['nothing-matches-this', '%', "' OR 1=1 --"]) {
     assert.deepEqual(await (await request(`/books?q=${encodeURIComponent(query)}`)).json(), []);
@@ -160,7 +173,7 @@ test('search is case-insensitive, includes authors and runs before limiting', as
     await (await request('/books?q=_')).json(),
     seed.filter(book => book.title === 'Project no_face')
   );
-  assert.equal((await (await request('/books?q=%20%20')).json()).length, 300);
+  assert.equal((await (await request('/books?q=%20%20')).json()).length, 1000);
 });
 
 test('invalid query parameters are rejected without coercion', async () => {
@@ -293,7 +306,7 @@ test('reinitialization preserves edits, inserts missing seed books, and serializ
     1
   );
   assert.deepEqual(await (await request(`/books/${seed[0]!.isbn}`)).json(), edited);
-  assert.equal((await (await request()).json()).length, 300);
+  assert.equal((await (await request()).json()).length, 1000);
 });
 
 test('persisted edits survive a closed HTTP server and fresh database connection', async () => {
