@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   AfterViewInit,
   Component,
   computed,
@@ -8,7 +9,7 @@ import {
   NgZone,
   OnDestroy,
   signal,
-  ViewChild,
+  viewChild,
   ViewEncapsulation
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -30,6 +31,7 @@ import {
 import { UniverseRenderer } from './universe-renderer';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-book-universe',
   imports: [RouterLink, CachedCoverPipe],
   templateUrl: './book-universe.component.html',
@@ -37,7 +39,7 @@ import { UniverseRenderer } from './universe-renderer';
   encapsulation: ViewEncapsulation.None
 })
 export class BookUniverseComponent implements AfterViewInit, OnDestroy {
-  @ViewChild('scene', { static: true }) private sceneHost!: ElementRef<HTMLElement>;
+  private readonly sceneHost = viewChild.required<ElementRef<HTMLElement>>('scene');
   private readonly api = inject(BookApiClient);
   private readonly dialogs = inject(BookDialogService);
   private readonly destroyRef = inject(DestroyRef);
@@ -131,7 +133,7 @@ export class BookUniverseComponent implements AfterViewInit, OnDestroy {
     this.zone.runOutsideAngular(() => {
       try {
         this.renderer = new UniverseRenderer(
-          this.sceneHost.nativeElement,
+          this.sceneHost().nativeElement,
           this.galaxy(),
           (index, focus) => this.zone.run(() => this.select(index, focus)),
           (index, x, y) =>
@@ -153,7 +155,7 @@ export class BookUniverseComponent implements AfterViewInit, OnDestroy {
         this.syncScene();
       } catch {
         // Initialization can fail before the renderer owner exists (e.g. unavailable WebGL).
-        this.sceneHost.nativeElement.replaceChildren();
+        this.sceneHost().nativeElement.replaceChildren();
         this.zone.run(() => this.graphicsError.set(true));
       }
     });

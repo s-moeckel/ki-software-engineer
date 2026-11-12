@@ -16,6 +16,23 @@
 
 Ein Architekturreview mit Aufbau, Datenfluss, Risikobewertungen und priorisierten Empfehlungen findest du in [ARCHITECTURE.md](./ARCHITECTURE.md).
 
+## Angular conventions
+
+The application stays on Angular 20 and uses standalone components with OnPush
+change detection throughout. Local UI state uses Signals, derived values use
+computed Signals, and component bindings use signal inputs and function outputs.
+Templates use native control flow; the search and book editor use typed Reactive
+Forms. Services use inject(), scene hosts use signal queries, and all three
+screens load through lazy routes. Three.js animation loops remain outside Angular;
+scene disposal and request cancellation remain tied to component lifecycles.
+
+The application regression suite uses Playwright with a mocked API. Run all
+product checks in Chromium (excluding the external Playwright example):
+
+```sh
+npx playwright test tests/book-details.spec.ts tests/book-search.spec.ts tests/book-random.spec.ts tests/book-cover-cache.spec.ts tests/theme.spec.ts tests/library.spec.ts tests/library-review.spec.ts tests/library-data.spec.ts tests/book-universe.spec.ts tests/universe-data.spec.ts tests/isbn.spec.ts --project=chromium --workers=1
+```
+
 ## Local Development
 
 | Command       | Description                                      |

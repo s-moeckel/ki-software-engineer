@@ -1,7 +1,6 @@
-import { CommonModule } from '@angular/common';
-import { Component, DestroyRef, inject, Input, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, signal, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormsModule } from '@angular/forms';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
@@ -11,9 +10,9 @@ import { BookApiClient } from './book-api-client.service';
 import { BookItemComponent } from './book-item.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-book-list',
-  standalone: true,
-  imports: [CommonModule, FormsModule, BookItemComponent, MatDialogModule, MatSnackBarModule],
+  imports: [ReactiveFormsModule, BookItemComponent, MatDialogModule, MatSnackBarModule],
   template: `
     <div class="container mx-auto px-4 py-12 max-w-7xl">
       <h1
@@ -27,95 +26,101 @@ import { BookItemComponent } from './book-item.component';
           <input
             type="text"
             aria-label="Search for books"
-            [(ngModel)]="searchTerm"
-            (ngModelChange)="onSearchChange()"
+            [formControl]="search"
             placeholder="Search for books..."
             class="appearance-none bg-transparent border-none w-full text-gray-700 dark:text-gray-200 mr-3 py-1 px-2 leading-tight focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           />
-          <button
-            *ngIf="searchTerm"
-            aria-label="Clear search"
-            (click)="clearSearch()"
-            class="flex-shrink-0 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-          >
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
+          @if (search.value) {
+            <button
+              aria-label="Clear search"
+              (click)="clearSearch()"
+              class="flex-shrink-0 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            >
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          }
         </div>
       </div>
 
-      <div *ngIf="loading" class="flex justify-center items-center py-20">
-        <div class="animate-pulse flex flex-col items-center">
-          <div
-            class="h-16 w-16 rounded-full border-4 border-t-blue-700 dark:border-t-blue-400 border-r-blue-700 dark:border-r-blue-400 border-b-gray-200 dark:border-b-gray-700 border-l-gray-200 dark:border-l-gray-700 animate-spin"
-          ></div>
-          <p class="mt-4 text-gray-600 dark:text-gray-300">Loading books...</p>
+      @if (loading()) {
+        <div class="flex justify-center items-center py-20">
+          <div class="animate-pulse flex flex-col items-center">
+            <div
+              class="h-16 w-16 rounded-full border-4 border-t-blue-700 dark:border-t-blue-400 border-r-blue-700 dark:border-r-blue-400 border-b-gray-200 dark:border-b-gray-700 border-l-gray-200 dark:border-l-gray-700 animate-spin"
+            ></div>
+            <p class="mt-4 text-gray-600 dark:text-gray-300">Loading books...</p>
+          </div>
         </div>
-      </div>
+      }
 
-      <p *ngIf="loadError" role="alert">
-        Could not load books. <button type="button" (click)="loadBooks()">Retry</button>
-      </p>
-      <div *ngIf="!loading && !loadError" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-        <app-book-item
-          *ngFor="let book of books; trackBy: trackById"
-          [book]="book"
-          (details)="openDetails($event)"
-        ></app-book-item>
-
-        <div
-          *ngIf="books.length === 0"
-          class="col-span-full flex flex-col items-center justify-center py-16 text-center bg-gray-50 dark:bg-gray-900 rounded-xl"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-16 w-16 text-gray-400 dark:text-gray-400 mb-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="1.5"
-              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-            />
-          </svg>
-          <p class="text-xl font-medium text-gray-600 dark:text-gray-300 mb-2">
-            {{ searchTerm ? 'No books match your search' : 'No books available' }}
-          </p>
-          <p class="text-gray-500 dark:text-gray-400">
-            {{ searchTerm ? 'Try different search terms or clear the search' : 'Check back later' }}
-          </p>
-          <button
-            *ngIf="searchTerm"
-            (click)="clearSearch()"
-            class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200"
-          >
-            Clear Search
-          </button>
+      @if (loadError()) {
+        <p role="alert">Could not load books. <button type="button" (click)="loadBooks()">Retry</button></p>
+      }
+      @if (!loading() && !loadError()) {
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
+          @for (book of books(); track book.id) {
+            <app-book-item [book]="book" (details)="openDetails($event)"></app-book-item>
+          }
+          @if (books().length === 0) {
+            <div
+              class="col-span-full flex flex-col items-center justify-center py-16 text-center bg-gray-50 dark:bg-gray-900 rounded-xl"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-16 w-16 text-gray-400 dark:text-gray-400 mb-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="1.5"
+                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                />
+              </svg>
+              <p class="text-xl font-medium text-gray-600 dark:text-gray-300 mb-2">
+                {{ search.value ? 'No books match your search' : 'No books available' }}
+              </p>
+              <p class="text-gray-500 dark:text-gray-400">
+                {{ search.value ? 'Try different search terms or clear the search' : 'Check back later' }}
+              </p>
+              @if (search.value) {
+                <button
+                  (click)="clearSearch()"
+                  class="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200"
+                >
+                  Clear Search
+                </button>
+              }
+            </div>
+          }
         </div>
-      </div>
+      }
     </div>
   `
 })
 export class BookListComponent implements OnInit {
-  @Input() pageSize: number = 10;
-  books: Book[] = [];
-  loading: boolean = true;
-  searchTerm: string = '';
-  loadError = false;
+  readonly pageSize = input(10);
+  readonly books = signal<Book[]>([]);
+  readonly loading = signal(true);
+  readonly search = new FormControl('', { nonNullable: true });
+  readonly loadError = signal(false);
   private searchTimeout?: ReturnType<typeof setTimeout>;
   private listRequest?: Subscription;
   private readonly destroyRef = inject(DestroyRef);
   private readonly dialogs = inject(BookDialogService);
 
-  constructor(private bookApiClient: BookApiClient) {
+  private readonly bookApiClient = inject(BookApiClient);
+
+  constructor() {
     this.destroyRef.onDestroy(() => clearTimeout(this.searchTimeout));
   }
 
   ngOnInit(): void {
+    this.search.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.onSearchChange());
     this.dialogs.changes.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.loadBooks());
     this.loadBooks();
   }
@@ -123,19 +128,19 @@ export class BookListComponent implements OnInit {
   loadBooks(): void {
     clearTimeout(this.searchTimeout);
     this.listRequest?.unsubscribe();
-    this.loading = true;
-    this.loadError = false;
+    this.loading.set(true);
+    this.loadError.set(false);
     this.listRequest = this.bookApiClient
-      .getBooks(this.pageSize, this.searchTerm)
+      .getBooks(this.pageSize(), this.search.value)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: books => {
-          this.books = books;
-          this.loading = false;
+          this.books.set(books);
+          this.loading.set(false);
         },
         error: () => {
-          this.loadError = true;
-          this.loading = false;
+          this.loadError.set(true);
+          this.loading.set(false);
         }
       });
   }
@@ -144,8 +149,8 @@ export class BookListComponent implements OnInit {
     clearTimeout(this.searchTimeout);
     // Invalidate the previous search immediately, including its in-flight response.
     this.listRequest?.unsubscribe();
-    this.loading = true;
-    this.loadError = false;
+    this.loading.set(true);
+    this.loadError.set(false);
     this.searchTimeout = setTimeout(() => {
       this.loadBooks();
     }, 300);
@@ -156,11 +161,7 @@ export class BookListComponent implements OnInit {
   }
 
   clearSearch(): void {
-    this.searchTerm = '';
+    this.search.setValue('', { emitEvent: false });
     this.loadBooks();
-  }
-
-  trackById(index: number, book: Book): string {
-    return book.id;
   }
 }

@@ -106,3 +106,22 @@ test('recovers from a failed initial list request', async ({ page }) => {
   await expect(page.getByRole('alert')).toHaveCount(0);
   expect(searches).toEqual([null, null]);
 });
+
+test('navigation cancels a pending search debounce and returning creates a fresh list', async ({ page }) => {
+  const searches: (string | null)[] = [];
+  await page.route(api + '*', route => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.has('_limit')) searches.push(url.searchParams.get('q'));
+    return route.fulfill({ json: [] });
+  });
+  await page.getByRole('textbox', { name: 'Search for books' }).fill('pending');
+  await page.clock.runFor(100);
+  await page.getByRole('link', { name: 'BookMonkey Universe öffnen', exact: true }).click();
+  await expect(page).toHaveURL(/\/universe$/);
+  await page.clock.runFor(1000);
+  expect(searches).toEqual([]);
+  await page.clock.resume();
+  await page.getByRole('link', { name: 'Büchersammlung öffnen', exact: true }).click();
+  await expect(page.getByRole('textbox', { name: 'Search for books' })).toHaveValue('');
+  await expect.poll(() => searches).toEqual([null]);
+});

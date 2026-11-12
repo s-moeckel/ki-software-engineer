@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, signal, DestroyRef, inject, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,8 +12,8 @@ import { BookApiClient } from './book-api-client.service';
 import { CachedCoverPipe } from './cached-cover.pipe';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-book-details-dialog',
-  standalone: true,
   imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule, CachedCoverPipe],
   templateUrl: './book-details-dialog.component.html',
   styles: `
@@ -39,12 +39,12 @@ export class BookDetailsDialogComponent implements OnInit {
   private readonly requestTimeoutMs = 15_000;
   readonly dialogRef = inject(MatDialogRef<BookDetailsDialogComponent, Book>);
   readonly data = inject<{ isbn: string }>(MAT_DIALOG_DATA);
-  state: 'loading' | 'viewing' | 'editing' | 'saving' | 'uncertain' | 'error' = 'loading';
-  book?: Book;
-  loadError = '';
-  saveError = '';
+  readonly state = signal<'loading' | 'viewing' | 'editing' | 'saving' | 'uncertain' | 'error'>('loading');
+  readonly book = signal<Book | undefined>(undefined);
+  readonly loadError = signal('');
+  readonly saveError = signal('');
   saveUnconfirmed = false;
-  coverFailed = false;
+  readonly coverFailed = signal(false);
 
   readonly form = new FormGroup({
     title: new FormControl('', { nonNullable: true, validators: [Validators.required, Validators.pattern(/\S/)] }),
@@ -65,51 +65,54 @@ export class BookDetailsDialogComponent implements OnInit {
   }
 
   load(): void {
-    this.state = 'loading';
-    this.loadError = '';
-    this.saveError = '';
+    this.state.set('loading');
+    this.loadError.set('');
+    this.saveError.set('');
     this.api
       .getBook(this.data.isbn)
       .pipe(timeout(this.requestTimeoutMs), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: book => {
-          this.book = book;
-          this.coverFailed = false;
-          this.state = 'viewing';
+          this.book.set(book);
+          this.coverFailed.set(false);
+          this.state.set('viewing');
         },
         error: (error: HttpErrorResponse) => {
-          this.loadError =
+          this.loadError.set(
             error.status === 404
               ? 'This book could not be found. It may have been removed.'
-              : 'Could not load book details. Please try again.';
-          this.state = 'error';
+              : 'Could not load book details. Please try again.'
+          );
+          this.state.set('error');
         }
       });
   }
 
   edit(): void {
-    if (this.state !== 'viewing' || !this.book) return;
+    const book = this.book();
+    if (this.state() !== 'viewing' || !book) return;
     this.form.enable();
-    this.form.reset({ ...this.book, subtitle: this.book.subtitle ?? '' });
-    this.saveError = '';
-    this.state = 'editing';
+    this.form.reset({ ...book, subtitle: book.subtitle ?? '' });
+    this.saveError.set('');
+    this.state.set('editing');
   }
 
   cancel(): void {
-    if (this.state !== 'editing') return;
+    if (this.state() !== 'editing') return;
     this.form.reset();
-    this.saveError = '';
-    this.state = 'viewing';
+    this.saveError.set('');
+    this.state.set('viewing');
   }
 
   save(): void {
-    if (this.state !== 'editing' || !this.book) return;
+    const book = this.book();
+    if (this.state() !== 'editing' || !book) return;
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
     const draft = this.form.getRawValue();
-    const updated: Book = { ...this.book, ...draft, numPages: draft.numPages! };
-    this.state = 'saving';
-    this.saveError = '';
+    const updated: Book = { ...book, ...draft, numPages: draft.numPages! };
+    this.state.set('saving');
+    this.saveError.set('');
     this.dialogRef.disableClose = true;
     this.form.disable();
     this.api
@@ -121,14 +124,15 @@ export class BookDetailsDialogComponent implements OnInit {
           this.dialogRef.disableClose = false;
           if (error instanceof TimeoutError || (error instanceof HttpErrorResponse && error.status === 0)) {
             this.saveUnconfirmed = true;
-            this.state = 'uncertain';
-            this.saveError =
-              'The save result is unknown. Your draft is shown below. Reload the saved version before editing again; this discards the draft. The server may still be processing the save.';
+            this.state.set('uncertain');
+            this.saveError.set(
+              'The save result is unknown. Your draft is shown below. Reload the saved version before editing again; this discards the draft. The server may still be processing the save.'
+            );
             return;
           }
-          this.state = 'editing';
+          this.state.set('editing');
           this.form.enable();
-          this.saveError = 'Could not save your changes. Please try again.';
+          this.saveError.set('Could not save your changes. Please try again.');
         }
       });
   }

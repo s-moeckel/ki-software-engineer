@@ -1,18 +1,18 @@
 <h2 mat-dialog-title>Book details</h2>
-<mat-dialog-content [attr.aria-busy]="state === 'loading' || state === 'saving'">
-  @if (state === 'loading') {
+<mat-dialog-content [attr.aria-busy]="state() === 'loading' || state() === 'saving'">
+  @if (state() === 'loading') {
     <p role="status" class="py-8">Loading book details...</p>
-  } @else if (state === 'error') {
-    <p role="alert">{{ loadError }}</p>
+  } @else if (state() === 'error') {
+    <p role="alert">{{ loadError() }}</p>
     <button mat-stroked-button type="button" (click)="load()">Retry</button>
-  } @else if (state === 'viewing' && book) {
+  } @else if (state() === 'viewing' && book(); as currentBook) {
     <div class="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-6">
       <div class="bg-gray-100 dark:bg-gray-800 flex items-center justify-center min-h-48 rounded overflow-hidden">
-        @if (book.cover && !coverFailed) {
+        @if (currentBook.cover && !coverFailed()) {
           <img
-            [src]="book.cover | cachedCover"
-            [alt]="book.title"
-            (error)="coverFailed = true"
+            [src]="currentBook.cover | cachedCover"
+            [alt]="currentBook.title"
+            (error)="coverFailed.set(true)"
             class="w-full max-h-64 object-contain"
           />
         } @else {
@@ -22,39 +22,39 @@
       <dl class="grid gap-2">
         <div>
           <dt>Title</dt>
-          <dd>{{ book.title }}</dd>
+          <dd>{{ currentBook.title }}</dd>
         </div>
         <div>
           <dt>Subtitle</dt>
-          <dd>{{ book.subtitle || '—' }}</dd>
+          <dd>{{ currentBook.subtitle || '—' }}</dd>
         </div>
         <div>
           <dt>Author</dt>
-          <dd>{{ book.author }}</dd>
+          <dd>{{ currentBook.author }}</dd>
         </div>
         <div>
           <dt>ISBN</dt>
-          <dd>{{ book.isbn }}</dd>
+          <dd>{{ currentBook.isbn }}</dd>
         </div>
         <div>
           <dt>Publisher</dt>
-          <dd>{{ book.publisher || '—' }}</dd>
+          <dd>{{ currentBook.publisher || '—' }}</dd>
         </div>
         <div>
           <dt>Pages</dt>
-          <dd>{{ book.numPages }}</dd>
+          <dd>{{ currentBook.numPages }}</dd>
         </div>
         <div>
           <dt>Price</dt>
-          <dd>{{ book.price || '—' }}</dd>
+          <dd>{{ currentBook.price || '—' }}</dd>
         </div>
       </dl>
       <div class="sm:col-span-2">
         <h3 class="font-semibold">Description</h3>
-        <p class="whitespace-pre-wrap break-words">{{ book.abstract || 'No description available.' }}</p>
+        <p class="whitespace-pre-wrap break-words">{{ currentBook.abstract || 'No description available.' }}</p>
       </div>
     </div>
-  } @else if (state === 'editing' || state === 'saving' || state === 'uncertain') {
+  } @else if (state() === 'editing' || state() === 'saving' || state() === 'uncertain') {
     <form
       id="book-edit-form"
       [formGroup]="form"
@@ -74,7 +74,7 @@
           <mat-error>Author is required.</mat-error>
         }
       </mat-form-field>
-      <mat-form-field><mat-label>ISBN</mat-label><input matInput [value]="book?.isbn" readonly /></mat-form-field>
+      <mat-form-field><mat-label>ISBN</mat-label><input matInput [value]="book()?.isbn" readonly /></mat-form-field>
       <mat-form-field><mat-label>Publisher</mat-label><input matInput formControlName="publisher" /></mat-form-field>
       <mat-form-field
         ><mat-label>Pages</mat-label
@@ -88,27 +88,27 @@
       <mat-form-field class="sm:col-span-2"
         ><mat-label>Description</mat-label><textarea matInput formControlName="abstract" rows="5"></textarea>
       </mat-form-field>
-      @if (saveError) {
-        <p role="alert" class="sm:col-span-2 text-red-700 dark:text-red-300">{{ saveError }}</p>
+      @if (saveError()) {
+        <p role="alert" class="sm:col-span-2 text-red-700 dark:text-red-300">{{ saveError() }}</p>
       }
-      @if (state === 'saving') {
+      @if (state() === 'saving') {
         <p role="status">Saving changes...</p>
       }
     </form>
   }
 </mat-dialog-content>
 <mat-dialog-actions align="end">
-  @if (state === 'editing' || state === 'saving') {
-    <button mat-button type="button" (click)="cancel()" [disabled]="state === 'saving'">Cancel</button>
-    <button mat-flat-button type="submit" form="book-edit-form" [disabled]="state === 'saving'">
-      {{ state === 'saving' ? 'Saving...' : 'Save' }}
+  @if (state() === 'editing' || state() === 'saving') {
+    <button mat-button type="button" (click)="cancel()" [disabled]="state() === 'saving'">Cancel</button>
+    <button mat-flat-button type="submit" form="book-edit-form" [disabled]="state() === 'saving'">
+      {{ state() === 'saving' ? 'Saving...' : 'Save' }}
     </button>
   } @else {
     <button mat-button type="button" mat-dialog-close>Close</button>
-    @if (state === 'viewing') {
+    @if (state() === 'viewing') {
       <button mat-flat-button type="button" (click)="edit()">Edit</button>
     }
-    @if (state === 'uncertain') {
+    @if (state() === 'uncertain') {
       <button mat-flat-button type="button" (click)="load()">Reload saved version</button>
     }
   }

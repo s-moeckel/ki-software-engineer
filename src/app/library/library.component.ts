@@ -1,12 +1,14 @@
 import {
+  ChangeDetectionStrategy,
   AfterViewInit,
   Component,
   DestroyRef,
   ElementRef,
   NgZone,
   OnDestroy,
-  ViewChild,
+  viewChild,
   inject,
+  computed,
   signal
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -19,13 +21,14 @@ import { createLibraryLayout, searchLibrary } from './library-data';
 import { LibraryRenderer } from './library-renderer';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-library',
   imports: [RouterLink],
   templateUrl: './library.component.html',
   styleUrl: './library.component.css'
 })
 export class LibraryComponent implements AfterViewInit, OnDestroy {
-  @ViewChild('scene', { static: true }) private sceneHost!: ElementRef<HTMLElement>;
+  private readonly sceneHost = viewChild.required<ElementRef<HTMLElement>>('scene');
   private readonly api = inject(BookApiClient);
   private readonly dialogs = inject(BookDialogService);
   private readonly destroyRef = inject(DestroyRef);
@@ -42,7 +45,7 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
   readonly graphicsError = signal(false);
   readonly reducedMotion = signal(false);
   readonly lowQuality = signal(false);
-  readonly searchResults = signal<Book[]>([]);
+  readonly searchResults = computed(() => searchLibrary(this.books(), this.query()));
   readonly inspecting = signal(false);
 
   ngAfterViewInit(): void {
@@ -64,16 +67,14 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
             this.selectedIsbn = undefined;
             this.selected.set(undefined);
           }
-          this.searchResults.set(searchLibrary(books, this.query()));
           this.loading.set(false);
           this.createScene();
         },
         error: () => {
           this.renderer?.dispose();
           this.renderer = undefined;
-          this.sceneHost.nativeElement.replaceChildren();
+          this.sceneHost().nativeElement.replaceChildren();
           this.books.set([]);
-          this.searchResults.set([]);
           this.selected.set(undefined);
           this.inspecting.set(false);
           this.loading.set(false);
@@ -84,7 +85,6 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
 
   search(value: string): void {
     this.query.set(value);
-    this.searchResults.set(searchLibrary(this.books(), value));
     this.renderer?.setSearchMatches(new Set(this.searchResults().map(book => book.isbn)));
   }
 
@@ -146,7 +146,7 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
       try {
         const media = window.matchMedia('(prefers-reduced-motion: reduce)');
         this.reducedMotion.set(media.matches);
-        const renderer = new LibraryRenderer(this.sceneHost.nativeElement, createLibraryLayout(this.books()), {
+        const renderer = new LibraryRenderer(this.sceneHost().nativeElement, createLibraryLayout(this.books()), {
           reducedMotion: media.matches,
           lowQuality: this.lowQuality(),
           onSelect: isbn =>
@@ -157,7 +157,7 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
           onFailure: () =>
             this.zone.run(() => {
               this.renderer = undefined;
-              this.sceneHost.nativeElement.replaceChildren();
+              this.sceneHost().nativeElement.replaceChildren();
               this.inspecting.set(false);
               this.graphicsError.set(true);
             }),
@@ -167,7 +167,7 @@ export class LibraryComponent implements AfterViewInit, OnDestroy {
         renderer.setSearchMatches(new Set(this.searchResults().map(book => book.isbn)));
         if (this.selectedIsbn) renderer.select(this.selectedIsbn);
       } catch {
-        this.sceneHost.nativeElement.replaceChildren();
+        this.sceneHost().nativeElement.replaceChildren();
         this.zone.run(() => this.graphicsError.set(true));
       }
     });

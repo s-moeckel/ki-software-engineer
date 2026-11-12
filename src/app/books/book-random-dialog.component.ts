@@ -1,5 +1,5 @@
 import { DOCUMENT } from '@angular/common';
-import { Component, DestroyRef, inject, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, signal, DestroyRef, inject, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -9,6 +9,7 @@ import { BookApiClient } from './book-api-client.service';
 import { CachedCoverPipe } from './cached-cover.pipe';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-book-random-dialog',
   imports: [MatDialogModule, MatButtonModule, CachedCoverPipe],
   templateUrl: './book-random-dialog.component.html',
@@ -19,12 +20,12 @@ export class BookRandomDialogComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly reducedMotion = inject(DOCUMENT).defaultView?.matchMedia('(prefers-reduced-motion: reduce)');
   readonly dialogRef = inject(MatDialogRef<BookRandomDialogComponent, string>);
-  state: 'loading' | 'rolling' | 'result' | 'empty' | 'error' = 'loading';
+  readonly state = signal<'loading' | 'rolling' | 'result' | 'empty' | 'error'>('loading');
   private books: Book[] = [];
   readonly faces = ['front', 'back', 'right', 'left', 'top', 'bottom'];
-  faceBooks: Book[] = [];
-  result?: Book;
-  private readonly failedCovers = new Set<string>();
+  readonly faceBooks = signal<Book[]>([]);
+  readonly result = signal<Book | undefined>(undefined);
+  private readonly failedCovers = signal(new Set<string>());
   private animationTimer?: ReturnType<typeof setTimeout>;
   private coverTimer?: ReturnType<typeof setInterval>;
   private closed = false;
@@ -46,8 +47,8 @@ export class BookRandomDialogComponent implements OnInit {
   }
 
   load(): void {
-    if (this.closed || this.state === 'rolling') return;
-    this.state = 'loading';
+    if (this.closed || this.state() === 'rolling') return;
+    this.state.set('loading');
     this.api
       .getAllBooks()
       .pipe(timeout(15_000), takeUntil(this.dialogRef.beforeClosed()), takeUntilDestroyed(this.destroyRef))
@@ -56,21 +57,21 @@ export class BookRandomDialogComponent implements OnInit {
           if (this.closed) return;
           this.books = books;
           if (!books.length) {
-            this.state = 'empty';
+            this.state.set('empty');
             return;
           }
           this.roll();
         },
         error: () => {
-          if (!this.closed) this.state = 'error';
+          if (!this.closed) this.state.set('error');
         }
       });
   }
 
   roll(): void {
-    if (this.closed || this.state === 'rolling' || !this.books.length) return;
-    this.state = 'rolling';
-    this.result = undefined;
+    if (this.closed || this.state() === 'rolling' || !this.books.length) return;
+    this.state.set('rolling');
+    this.result.set(undefined);
     let index = 0;
     this.updateFaces(index);
     // Cover previews do not consume randomness or change the selection odds.
@@ -79,20 +80,20 @@ export class BookRandomDialogComponent implements OnInit {
     }, 160);
     this.animationTimer = setTimeout(() => {
       this.stopAnimation();
-      this.result = this.books[Math.floor(Math.random() * this.books.length)];
-      this.state = 'result';
+      this.result.set(this.books[Math.floor(Math.random() * this.books.length)]);
+      this.state.set('result');
     }, 2000);
   }
 
   coverAvailable(book: Book): boolean {
-    return !!book.cover && !this.failedCovers.has(book.cover);
+    return !!book.cover && !this.failedCovers().has(book.cover);
   }
   coverFailed(book: Book): void {
-    this.failedCovers.add(book.cover);
+    this.failedCovers.update(covers => new Set([...covers, book.cover]));
   }
 
   private updateFaces(start: number): void {
-    this.faceBooks = this.faces.map((_, index) => this.books[(start + index) % this.books.length]);
+    this.faceBooks.set(this.faces.map((_, index) => this.books[(start + index) % this.books.length]));
   }
 
   private stopAnimation(): void {

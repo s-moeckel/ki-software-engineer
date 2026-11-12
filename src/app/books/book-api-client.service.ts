@@ -1,5 +1,5 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Book } from './book';
 
@@ -7,7 +7,7 @@ import { Book } from './book';
 export class BookApiClient {
   private readonly apiUrl = 'http://localhost:4730/books';
 
-  constructor(private http: HttpClient) {}
+  private readonly http = inject(HttpClient);
 
   getAllBooks(): Observable<Book[]> {
     return this.http.get<Book[]>(this.apiUrl);

@@ -42,4 +42,6 @@ export async function setup(page: Page): Promise<void> {
     return route.fulfill({ json: book });
   });
   await page.goto('http://localhost:4200');
+  // Lazy routes finish loading after the document navigation completes.
+  await expect(page.getByRole('heading', { name: book.title, exact: true })).toBeVisible();
 }

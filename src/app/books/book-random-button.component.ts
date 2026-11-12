@@ -1,10 +1,11 @@
-import { Component, DestroyRef, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { BookDialogService } from './book-dialog.service';
 import { BookRandomDialogComponent } from './book-random-dialog.component';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-book-random-button',
   imports: [MatDialogModule],
   template: `
