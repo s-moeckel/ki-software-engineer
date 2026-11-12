@@ -54,6 +54,14 @@ system changes, keyboard access, blocked storage, and mobile surfaces in both th
 
 ## The API
 
+### MCP-Zugriff auf die Buchbibliothek
+
+Der lokale `bookmonkey_mcp` bietet `list_books`, `search_books` und `get_book`
+über dieselbe Buch-API wie die Oberfläche. Vorbereitung: `npm run build.book-mcp`,
+Backend mit `npm run backend` starten und den MCP-Client verbinden.
+Die Codex-Projektkonfiguration ist enthalten. Einrichtung, Parameter und Tests
+stehen in [tools/book-mcp/README.md](tools/book-mcp/README.md).
+
 ### Eigenes SQLite-Backend
 
 Zum gemeinsamen Debuggen in VS Code **Backend + Frontend** auswählen und F5 drücken.

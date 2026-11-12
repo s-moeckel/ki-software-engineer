@@ -9,7 +9,10 @@
     "test": "ng test",
     "format.write": "prettier --write \"src/**/*.{ts,html,md,css,json}\"",
     "backend": "npm --prefix backend run dev",
-    "build.angular-mcp": "tsc --project tools/angular-mcp/tsconfig.json --watch"
+    "build.angular-mcp": "tsc --project tools/angular-mcp/tsconfig.json --watch",
+    "build.book-mcp": "tsc --project tools/book-mcp/tsconfig.json",
+    "start.book-mcp": "node dist/book-mcp/index.js",
+    "test.book-mcp": "npm run build.book-mcp && node --test tools/book-mcp/test/*.test.cjs"
   },
   "private": true,
   "dependencies": {
