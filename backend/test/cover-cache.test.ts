@@ -4,12 +4,15 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
 import { CoverCache, coverSource } from '../src/cover-cache.js';
 import { openDatabase } from '../src/database.js';
 import { createApp } from '../src/app.js';
 
-const url = 'https://covers.openlibrary.org/b/isbn/9780441172719-L.jpg?default=false';
-const other = 'https://covers.openlibrary.org/b/isbn/9780593098233-L.jpg?default=false';
+// Cover IDs isolate cache/transport checks from the ISBN fallback chain tested separately below.
+const url = 'https://covers.openlibrary.org/b/id/9780441172719-L.jpg?default=false';
+const other = 'https://covers.openlibrary.org/b/id/9780593098233-L.jpg?default=false';
+const authorCover = 'https://www.andreaseschbach.de/werke/romane/schlaumann/files/Schlaumann.jpg';
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==',
   'base64'
@@ -50,6 +53,40 @@ test('images persist across database reopen and concurrent misses share one down
   }
 });
 
+test('author covers share downloads and persist across database reopen without upstream access', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'bookmonkey-author-cover-'));
+  const filename = join(directory, 'cache.sqlite');
+  let database = openDatabase(filename);
+  let calls = 0;
+  try {
+    const cache = new CoverCache(database, {
+      fetcher: async source => {
+        assert.equal(String(source), authorCover);
+        calls++;
+        return image();
+      }
+    });
+    const results = await Promise.all([cache.get(authorCover), cache.get(authorCover)]);
+    assert.equal(calls, 1);
+    assert.ok(results.every(result => result.status === 200));
+    database.close();
+    database = openDatabase(filename);
+    const reopened = new CoverCache(database, {
+      fetcher: async () => {
+        calls++;
+        throw new Error('Upstream unavailable');
+      }
+    });
+    const result = await reopened.get(authorCover);
+    assert.equal(result.status, 200);
+    if (result.status === 200) assert.deepEqual(result.data, png);
+    assert.equal(calls, 1);
+  } finally {
+    database.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('missing covers are cached persistently for one day and retried after expiry', async () => {
   const database = openDatabase(':memory:');
   let now = 1000;
@@ -73,6 +110,253 @@ test('missing covers are cached persistently for one day and retried after expir
     now += 86400001;
     assert.equal((await restarted.get(url)).status, 200);
     assert.equal(calls, 2);
+  } finally {
+    database.close();
+  }
+});
+
+test('Teufelsgold uses a verified title cover even when an earlier 404 is still cached', async () => {
+  const database = openDatabase(':memory:');
+  const missing = 'https://covers.openlibrary.org/b/isbn/9783404177271-L.jpg?default=false';
+  const fallback = 'https://www.andreaseschbach.de/werke/romane/teufg/files/page152_1.jpg';
+  const seen: string[] = [];
+  try {
+    database.exec(`CREATE TABLE cover_cache (
+      url TEXT PRIMARY KEY, status INTEGER, data BLOB, content_type TEXT, expires_at INTEGER
+    )`);
+    database.prepare('INSERT INTO cover_cache VALUES (?, 404, NULL, NULL, ?)').run(missing, Date.now() + 86400000);
+    const cache = new CoverCache(database, {
+      concurrency: 1,
+      fetcher: async source => {
+        seen.push(String(source));
+        return image();
+      }
+    });
+    const result = await cache.get(missing);
+    assert.equal(result.status, 200);
+    if (result.status === 200) assert.deepEqual(result.data, png);
+    assert.deepEqual(seen, [fallback]);
+    const restarted = new CoverCache(database, {
+      fetcher: async () => {
+        throw new Error('Must use persisted fallback');
+      }
+    });
+    assert.equal((await restarted.get(missing)).status, 200);
+    assert.deepEqual(seen, [fallback]);
+  } finally {
+    database.close();
+  }
+});
+
+test('a fresh missing Teufelsgold cover falls back without deadlocking a single download slot', async () => {
+  const database = openDatabase(':memory:');
+  const missing = 'https://covers.openlibrary.org/b/isbn/9783404177271-L.jpg?default=false';
+  const seen: string[] = [];
+  try {
+    const cache = new CoverCache(database, {
+      concurrency: 1,
+      fetcher: async source => {
+        seen.push(String(source));
+        return seen.length === 1 ? new Response(null, { status: 404 }) : image();
+      }
+    });
+    assert.equal((await cache.get(missing)).status, 200);
+    assert.equal(seen.length, 2);
+    assert.equal(seen[0], missing);
+  } finally {
+    database.close();
+  }
+});
+
+test('ISBN fallback covers multiple authors, shares downloads and caches the exact ISBN image', async () => {
+  const database = openDatabase(':memory:');
+  const seen: string[] = [];
+  const isbns = ['9783404209804', '9783695710010', '9783864025396'];
+  try {
+    const cache = new CoverCache(database, {
+      fetcher: async source => {
+        const url = String(source);
+        seen.push(url);
+        return url.startsWith('https://covers.openlibrary.org/') ||
+          url.startsWith('https://www.bic-media.com/') ||
+          url.startsWith('https://images-eu.ssl-images-amazon.com/')
+          ? new Response(null, { status: 404 })
+          : image();
+      }
+    });
+    for (const isbn of isbns) {
+      const url = `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false`;
+      const results = await Promise.all([cache.get(url), cache.get(url)]);
+      assert.ok(results.every(result => result.status === 200));
+      assert.equal((await cache.get(url)).status, 200);
+      assert.equal(seen.filter(url => url === `https://buch.isbn.de/cover/${isbn}.jpg`).length, 1);
+    }
+    assert.equal(seen.length, 12);
+  } finally {
+    database.close();
+  }
+});
+
+test('an exhausted or throttled Open Library provider does not block ISBN fallback downloads', async () => {
+  for (const status of [404, 429]) {
+    const database = openDatabase(':memory:');
+    const seen: string[] = [];
+    try {
+      const cache = new CoverCache(database, {
+        requestsPerWindow: 1,
+        fetcher: async source => {
+          seen.push(String(source));
+          return seen.length === 1 ? new Response(null, { status }) : image();
+        }
+      });
+      assert.equal((await cache.get('https://covers.openlibrary.org/b/isbn/9783404209804-L.jpg')).status, 200);
+      assert.equal(seen.length, 2);
+      assert.equal(seen[1], 'https://www.bic-media.com/dmrs/cover.do?isbn=9783404209804&width=600');
+    } finally {
+      database.close();
+    }
+  }
+});
+
+test('the secondary provider missing-image placeholder is recorded as 404, never as a real cover', async () => {
+  const database = openDatabase(':memory:');
+  const placeholder = readFileSync(new URL('./fixtures/isbn-missing.jpg', import.meta.url));
+  let calls = 0;
+  try {
+    const cache = new CoverCache(database, {
+      fetcher: async () => {
+        calls++;
+        return new Response(placeholder, { headers: { 'Content-Type': 'image/jpeg' } });
+      }
+    });
+    const url = 'https://buch.isbn.de/cover/9780000000019.jpg';
+    assert.equal((await cache.get(url)).status, 404);
+    assert.equal((await cache.get(url)).status, 404);
+    assert.equal(calls, 1);
+    assert.equal(database.prepare('SELECT count(*) AS n FROM cover_cache WHERE status = 200').get()!['n'], 0);
+  } finally {
+    database.close();
+  }
+});
+
+test('the secondary provider no-picture redirect is a persistent 404 and is not downloaded', async () => {
+  const database = openDatabase(':memory:');
+  let calls = 0;
+  try {
+    const cache = new CoverCache(database, {
+      fetcher: async () => {
+        calls++;
+        return new Response(null, { status: 302, headers: { Location: '/nopic.png' } });
+      }
+    });
+    const url = 'https://buch.isbn.de/cover/9781511515351.jpg';
+    assert.equal((await cache.get(url)).status, 404);
+    assert.equal((await cache.get(url)).status, 404);
+    assert.equal(calls, 1);
+  } finally {
+    database.close();
+  }
+});
+
+test('BIC Media empty and blank responses fall through to the next ISBN provider', async () => {
+  const blank = readFileSync(new URL('./fixtures/bic-missing.jpg', import.meta.url));
+  for (const data of [Buffer.alloc(0), blank]) {
+    const database = openDatabase(':memory:');
+    const seen: string[] = [];
+    try {
+      const cache = new CoverCache(database, {
+        fetcher: async source => {
+          const url = String(source);
+          seen.push(url);
+          if (url.startsWith('https://covers.openlibrary.org/')) return new Response(null, { status: 404 });
+          if (url.startsWith('https://www.bic-media.com/'))
+            return new Response(data, { headers: { 'Content-Type': 'image/jpeg' } });
+          return image();
+        }
+      });
+      assert.equal((await cache.get('https://covers.openlibrary.org/b/isbn/9783404209804-L.jpg')).status, 200);
+      assert.equal(seen.length, 3);
+      assert.equal(
+        database.prepare("SELECT status FROM cover_cache WHERE url LIKE 'https://www.bic-media.com/%'").get()![
+          'status'
+        ],
+        404
+      );
+    } finally {
+      database.close();
+    }
+  }
+});
+
+test('the Amazon fallback uses the ISBN-10 check digit and skips ISBNs without a 978 equivalent', async () => {
+  for (const [isbn, expected] of [
+    ['9783404209804', '340420980X'],
+    ['9783695710010', '3695710012'],
+    ['9791234567896', undefined]
+  ]) {
+    const database = openDatabase(':memory:');
+    const seen: string[] = [];
+    try {
+      const cache = new CoverCache(database, {
+        fetcher: async source => {
+          const url = String(source);
+          seen.push(url);
+          return url.includes('ssl-images-amazon.com') || url.includes('buch.isbn.de')
+            ? image()
+            : new Response(null, { status: 404 });
+        }
+      });
+      assert.equal((await cache.get(`https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`)).status, 200);
+      const amazon = seen.find(url => url.includes('ssl-images-amazon.com'));
+      assert.equal(
+        amazon,
+        expected ? `https://images-eu.ssl-images-amazon.com/images/P/${expected}.01.LZZZZZZZ.jpg` : undefined
+      );
+    } finally {
+      database.close();
+    }
+  }
+});
+
+test('a one-pixel Amazon placeholder falls through to the remaining provider', async () => {
+  const database = openDatabase(':memory:');
+  const gif = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+  try {
+    const cache = new CoverCache(database, {
+      fetcher: async source => {
+        const url = String(source);
+        if (url.includes('ssl-images-amazon.com'))
+          return new Response(gif, { headers: { 'Content-Type': 'image/gif' } });
+        return url.includes('buch.isbn.de') ? image() : new Response(null, { status: 404 });
+      }
+    });
+    const result = await cache.get('https://covers.openlibrary.org/b/isbn/9783404209804-L.jpg');
+    assert.equal(result.status, 200);
+    if (result.status === 200) assert.deepEqual(result.data, png);
+    assert.equal(
+      database
+        .prepare("SELECT status FROM cover_cache WHERE url LIKE 'https://images-eu.ssl-images-amazon.com/%'")
+        .get()!['status'],
+      404
+    );
+  } finally {
+    database.close();
+  }
+});
+
+test('a later missing image does not hide a temporarily unavailable cover provider', async () => {
+  const database = openDatabase(':memory:');
+  try {
+    const cache = new CoverCache(database, {
+      fetcher: async source =>
+        new Response(null, {
+          status: String(source).includes('ssl-images-amazon.com') ? 429 : 404,
+          headers: { 'Retry-After': '600' }
+        })
+    });
+    const result = await cache.get('https://covers.openlibrary.org/b/isbn/9783404209804-L.jpg');
+    assert.equal(result.status, 503);
+    if (result.status !== 200) assert.equal(result.retryAfter, 600);
   } finally {
     database.close();
   }
@@ -168,6 +452,18 @@ test('arbitrary URLs, private hosts and redirect targets cannot be proxied', asy
     'https://user:pass@covers.openlibrary.org/b/id/1-L.jpg',
     'https://covers.openlibrary.org:8443/b/id/1-L.jpg',
     'https://covers.openlibrary.org/b/../admin',
+    'https://www.andreaseschbach.de/privates/index.html',
+    'https://www.andreaseschbach.de/werke/romane/schlaumann/files/cover.svg',
+    'https://www.andreaseschbach.de.evil.test/werke/romane/schlaumann/files/Schlaumann.jpg',
+    'https://user:pass@www.andreaseschbach.de/werke/romane/schlaumann/files/Schlaumann.jpg',
+    'http://www.andreaseschbach.de/werke/romane/schlaumann/files/Schlaumann.jpg',
+    'https://buch.isbn.de/private.jpg',
+    'https://buch.isbn.de.evil.test/cover/9783404209804.jpg',
+    'https://user:pass@buch.isbn.de/cover/9783404209804.jpg',
+    'https://www.bic-media.com/dmrs/cover.do?isbn=9783404209804&width=600&url=http://localhost',
+    'https://www.bic-media.com/dmrs/cover.do?isbn=9783404209804&width=999999',
+    'https://images-eu.ssl-images-amazon.com/private.jpg',
+    'https://images-eu.ssl-images-amazon.com.evil.test/images/P/340420980X.01.LZZZZZZZ.jpg',
     'not-a-url'
   ]) {
     assert.throws(() => coverSource(source));
@@ -205,6 +501,25 @@ test('one safe redirect is followed and persisted under the original URL', async
     assert.equal(calls, 2);
   } finally {
     database.close();
+  }
+});
+
+test('author covers reject redirects to unrelated hosts and pages', async () => {
+  for (const location of ['https://example.com/cover.jpg', 'http://127.0.0.1/private', '/privates/index.html']) {
+    const database = openDatabase(':memory:');
+    let calls = 0;
+    try {
+      const cache = new CoverCache(database, {
+        fetcher: async () => {
+          calls++;
+          return new Response(null, { status: 302, headers: { Location: location } });
+        }
+      });
+      assert.equal((await cache.get(authorCover)).status, 503);
+      assert.equal(calls, 1);
+    } finally {
+      database.close();
+    }
   }
 });
 

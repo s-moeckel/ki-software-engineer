@@ -1,4 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
+import { createHash } from 'node:crypto';
+import { coverFallbacks, isbnCoverFallbacks } from './cover-fallbacks.js';
 
 type Cover = { status: 200; data: Buffer; contentType: string } | { status: 404 | 503; retryAfter: number };
 interface CachedCover {
@@ -24,24 +26,48 @@ export function coverSource(value: string): string {
   } catch {
     throw Object.assign(new Error('Ungültige Cover-URL.'), { status: 400 });
   }
+  const openLibrary =
+    url.hostname === 'covers.openlibrary.org' && /^\/b\/(?:isbn|id|olid)\/[a-z0-9-]+-[SML]\.jpg$/i.test(url.pathname);
+  const eschbach =
+    url.hostname === 'www.andreaseschbach.de' &&
+    /^\/werke\/romane\/[a-z0-9_-]+\/files\/[a-z0-9_-]+\.(?:jpg|jpeg|png|webp)$/i.test(url.pathname);
+  const isbnCover = url.hostname === 'buch.isbn.de' && /^\/cover\/\d{13}\.jpg$/.test(url.pathname);
+  const amazonCover =
+    url.hostname === 'images-eu.ssl-images-amazon.com' &&
+    /^\/images\/P\/\d{9}[\dX]\.01\.LZZZZZZZ\.jpg$/.test(url.pathname);
+  const bicCover =
+    url.hostname === 'www.bic-media.com' &&
+    url.pathname === '/dmrs/cover.do' &&
+    /^\d{13}$/.test(url.searchParams.get('isbn') ?? '') &&
+    [...url.searchParams.keys()].sort().join(',') === 'isbn,width' &&
+    url.searchParams.get('width') === '600';
   if (
     url.protocol !== 'https:' ||
-    url.hostname !== 'covers.openlibrary.org' ||
     url.port ||
     url.username ||
     url.password ||
-    !/^\/b\/(?:isbn|id|olid)\/[a-z0-9-]+-[SML]\.jpg$/i.test(url.pathname)
+    (!openLibrary && !eschbach && !isbnCover && !bicCover && !amazonCover)
   ) {
     throw Object.assign(new Error('Nicht unterstützte Cover-Quelle.'), { status: 400 });
   }
-  url.search = '?default=false';
+  url.search = openLibrary ? '?default=false' : bicCover ? `?isbn=${url.searchParams.get('isbn')}&width=600` : '';
   url.hash = '';
   return url.href;
 }
 
 function coverRedirect(value: string, base: string): string {
   const url = new URL(value, base);
-  if (url.hostname === 'covers.openlibrary.org') return coverSource(url.href);
+  if (
+    [
+      'covers.openlibrary.org',
+      'www.andreaseschbach.de',
+      'buch.isbn.de',
+      'www.bic-media.com',
+      'images-eu.ssl-images-amazon.com'
+    ].includes(url.hostname)
+  ) {
+    return coverSource(url.href);
+  }
   const secure = url.protocol === 'https:' && !url.port && !url.username && !url.password;
   const coverArchive = (path: string) =>
     /^([sml]_covers_\d+)\/\1_\d+\.zip$/i.test(path) || /^(olcovers\d+)\/\1-[SML]\.zip$/i.test(path);
@@ -75,9 +101,8 @@ export class CoverCache {
   private readonly options: Options;
   private readonly pending = new Map<string, Promise<Cover>>();
   private readonly waiting: Array<() => void> = [];
-  private readonly requests: number[] = [];
+  private readonly providers = new Map<string, { requests: number[]; cooldownUntil: number }>();
   private active = 0;
-  private cooldownUntil = 0;
 
   constructor(
     private readonly database: DatabaseSync,
@@ -104,6 +129,24 @@ export class CoverCache {
 
   async get(source: string): Promise<Cover> {
     const url = coverSource(source);
+    let result = await this.getSource(url);
+    if (result.status === 200) return result;
+    let retryAfter = result.status === 503 ? result.retryAfter : undefined;
+    const isbn =
+      new URL(url).hostname === 'covers.openlibrary.org'
+        ? new URL(url).pathname.match(/^\/b\/isbn\/(\d+)-[SML]\.jpg$/i)?.[1]
+        : undefined;
+    const fallback = isbn ? coverFallbacks[isbn] : undefined;
+    for (const candidate of [fallback, ...isbnCoverFallbacks(url)]) {
+      if (!candidate) continue;
+      result = await this.getSource(coverSource(candidate));
+      if (result.status === 200) return result;
+      if (result.status === 503) retryAfter = Math.min(retryAfter ?? Infinity, result.retryAfter);
+    }
+    return retryAfter === undefined ? result : { status: 503, retryAfter };
+  }
+
+  private async getSource(url: string): Promise<Cover> {
     const cached = this.database.prepare('SELECT * FROM cover_cache WHERE url = ?').get(url) as unknown as
       | CachedCover
       | undefined;
@@ -126,12 +169,23 @@ export class CoverCache {
   private async load(url: string): Promise<Cover> {
     while (this.active >= this.options.concurrency) await new Promise<void>(resolve => this.waiting.push(resolve));
     this.active++;
+    const provider = new URL(url).hostname;
+    const windowMs = ['buch.isbn.de', 'www.bic-media.com', 'images-eu.ssl-images-amazon.com'].includes(provider)
+      ? Math.min(this.options.windowMs, 60000)
+      : this.options.windowMs;
+    const requestLimit =
+      provider === 'buch.isbn.de' ? Math.min(this.options.requestsPerWindow, 20) : this.options.requestsPerWindow;
+    let budget = this.providers.get(provider);
+    if (!budget) {
+      budget = { requests: [], cooldownUntil: 0 };
+      this.providers.set(provider, budget);
+    }
     try {
       const now = this.options.now();
-      while (this.requests.length && this.requests[0]! <= now - this.options.windowMs) this.requests.shift();
+      while (budget.requests.length && budget.requests[0]! <= now - windowMs) budget.requests.shift();
       const availableAt = Math.max(
-        this.cooldownUntil,
-        this.requests.length >= this.options.requestsPerWindow ? this.requests[0]! + this.options.windowMs : 0
+        budget.cooldownUntil,
+        budget.requests.length >= requestLimit ? budget.requests[0]! + windowMs : 0
       );
       if (availableAt > now) return { status: 503, retryAfter: Math.ceil((availableAt - now) / 1000) };
       let target = url;
@@ -139,25 +193,27 @@ export class CoverCache {
       for (let redirects = 0; redirects <= 3; redirects++) {
         if (visited.has(target)) return this.failure(url, 503, 60000);
         visited.add(target);
-        if (this.requests.length >= this.options.requestsPerWindow)
-          return this.failure(url, 503, this.options.windowMs);
-        this.requests.push(this.options.now());
+        if (budget.requests.length >= requestLimit) return this.failure(url, 503, windowMs);
+        budget.requests.push(this.options.now());
         const response = await this.options.fetcher(target, {
           redirect: 'manual',
           signal: AbortSignal.timeout(this.options.timeoutMs),
           headers: { Accept: 'image/jpeg,image/png,image/webp,image/gif' }
         });
-        if (response.status < 300 || response.status >= 400) return await this.consume(url, response);
+        if (response.status < 300 || response.status >= 400) return await this.consume(url, response, budget, windowMs);
         const location = response.headers.get('location');
         await response.body?.cancel();
         if (!location) return this.failure(url, 503, 60000);
+        if (provider === 'buch.isbn.de' && new URL(location, target).href === 'https://buch.isbn.de/nopic.png') {
+          return this.failure(url, 404, 86400000);
+        }
         // Open Library serves many covers through its official Internet Archive ZIP/CDN endpoints.
         target = coverRedirect(location, target);
       }
       return this.failure(url, 503, 60000);
     } catch (error) {
       if (!(error instanceof Error && 'status' in error && error.status === 400)) {
-        this.cooldownUntil = Math.max(this.cooldownUntil, this.options.now() + 60000);
+        budget.cooldownUntil = Math.max(budget.cooldownUntil, this.options.now() + 60000);
       }
       return this.failure(url, 503, 60000);
     } finally {
@@ -166,15 +222,30 @@ export class CoverCache {
     }
   }
 
-  private async consume(url: string, response: Response): Promise<Cover> {
+  private async consume(
+    url: string,
+    response: Response,
+    budget: { cooldownUntil: number },
+    windowMs: number
+  ): Promise<Cover> {
     if (response.status === 404) {
       await response.body?.cancel();
       return this.failure(url, 404, 86400000);
     }
     if (!response.ok) {
       await response.body?.cancel();
-      const delay = response.status === 403 || response.status === 429 ? this.options.windowMs : 60000;
-      this.cooldownUntil = Math.max(this.cooldownUntil, this.options.now() + delay);
+      const retryAfter = response.headers.get('retry-after');
+      const retryMs =
+        retryAfter && /^\d+$/.test(retryAfter)
+          ? Number(retryAfter) * 1000
+          : retryAfter
+            ? Date.parse(retryAfter) - this.options.now()
+            : 0;
+      const delay =
+        response.status === 403 || response.status === 429
+          ? Math.max(this.options.windowMs, Number.isFinite(retryMs) ? retryMs : 0)
+          : 60000;
+      budget.cooldownUntil = Math.max(budget.cooldownUntil, this.options.now() + delay);
       return this.failure(url, 503, delay);
     }
     if (
@@ -203,7 +274,28 @@ export class CoverCache {
       reader.releaseLock();
     }
     const data = Buffer.concat(chunks);
+    const hash = createHash('sha256').update(data).digest('hex');
+    // BIC Media can return an empty response or a white JPEG instead of an absent cover.
+    if (
+      new URL(url).hostname === 'www.bic-media.com' &&
+      (!data.length || hash === '0af4eca67cc8bfab3fcc01f89cd0b555f9050c0fd5b7e416bec471e49b422ba8')
+    )
+      return this.failure(url, 404, 86400000);
+    // ISBN.de returns HTTP 200 with this fixed green "Kein Bild gefunden" JPEG for missing images.
+    if (
+      new URL(url).hostname === 'buch.isbn.de' &&
+      hash === '56c52b8ab35ece80ff37361551e951dffbeb3e9c76c5e46519f17b83fa18bb21'
+    )
+      return this.failure(url, 404, 86400000);
     const contentType = imageType(data);
+    if (
+      new URL(url).hostname === 'images-eu.ssl-images-amazon.com' &&
+      contentType === 'image/gif' &&
+      data.length >= 10 &&
+      data.readUInt16LE(6) === 1 &&
+      data.readUInt16LE(8) === 1
+    )
+      return this.failure(url, 404, 86400000);
     if (!contentType) return this.failure(url, 503, 60000);
     this.database
       .prepare(

@@ -1,14 +1,8 @@
 import * as THREE from 'three';
 import { Book } from '../books/book';
 import { cachedCoverUrl } from '../books/cached-cover-url';
-import {
-  BOOK_DEPTH,
-  BOOK_HEIGHT,
-  LibraryPosition,
-  SHELF_COLUMN_DISTANCE,
-  SHELF_LEVELS,
-  SHELF_ROW_DISTANCE
-} from './library-data';
+import { addLibraryRoom } from './library-room';
+import { BOOK_DEPTH, BOOK_HEIGHT, LibraryPosition } from './library-data';
 
 export interface LibraryRendererOptions {
   reducedMotion: boolean;
@@ -24,6 +18,7 @@ interface BookObject {
   home: THREE.Vector3;
   body: THREE.Mesh<THREE.BoxGeometry, THREE.MeshStandardMaterial | THREE.MeshStandardMaterial[]>;
   materials: THREE.MeshStandardMaterial[];
+  homeRotation: THREE.Euler;
 }
 
 interface BookAnimation {
@@ -58,6 +53,7 @@ export class LibraryRenderer {
   private readonly move = new THREE.Vector3();
   private roomEnd = 8;
   private searchMatches?: ReadonlySet<string>;
+  private filtering = false;
   private readonly mutedMaterial = new THREE.MeshStandardMaterial({ color: 0x484b4d, roughness: 1 });
   private readonly roomObjects: THREE.Object3D[] = [];
 
@@ -71,14 +67,18 @@ export class LibraryRenderer {
     // This canvas is created outside Angular's template and has no scoped style attribute.
     Object.assign(this.canvas.style, { width: '100%', height: '100%', display: 'block', touchAction: 'none' });
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.25;
+    this.renderer.toneMappingExposure = 1.1;
     host.replaceChildren(this.canvas);
-    this.scene.fog = new THREE.Fog(0x302b23, 14, 40);
-    this.renderer.setClearColor(0x302b23);
+    this.scene.fog = new THREE.Fog(0x111925, 12, 32);
+    this.renderer.setClearColor(0x111925);
     this.camera.rotation.order = 'YXZ';
     this.reset();
     this.addRoom(layout);
     layout.forEach(item => this.addBook(item));
+    // The display contains interactive copies; every book also keeps its sorted shelf location.
+    layout.slice(0, 4).forEach((item, index) => {
+      this.addBook({ ...item, position: [((index % 2) - 0.5) * 0.75, index < 2 ? 1.12 : 1.94, 1.5] }, true);
+    });
     this.listen();
     this.resize();
     this.renderer.setAnimationLoop(time => this.frame(time));
@@ -90,6 +90,7 @@ export class LibraryRenderer {
 
   setSearchMatches(isbns: ReadonlySet<string>): void {
     this.searchMatches = new Set(isbns);
+    this.filtering = this.books.some(item => !isbns.has(item.book.isbn));
     this.books.forEach(item => this.updateAppearance(item));
   }
 
@@ -104,9 +105,9 @@ export class LibraryRenderer {
   reset(): void {
     this.returnBook();
     this.stopMovement();
-    this.camera.position.set(0, 1.65, -3.6);
+    this.camera.position.set(0, 1.65, -2.8);
     this.camera.rotation.set(-0.08, Math.PI, 0);
-    this.camera.fov = 65;
+    this.camera.fov = 55;
     this.camera.updateProjectionMatrix();
   }
 
@@ -115,8 +116,10 @@ export class LibraryRenderer {
   }
 
   inspect(point?: THREE.Vector3): boolean {
-    if (!this.selected || this.held || !this.canReach(this.selected, point)) return false;
+    if (!this.selected || this.held) return false;
+    // A book still travelling home must not obscure the next selection.
     this.finishAnimation();
+    if (!this.canReach(this.selected, point)) return false;
     this.stopMovement();
     this.held = this.selected;
     this.held.group.quaternion.copy(this.camera.quaternion);
@@ -138,7 +141,7 @@ export class LibraryRenderer {
     this.options.onInspectChange(false);
     this.updateAppearance(held);
     this.animate(held.group, held.home, () => {
-      held.group.rotation.set(0, 0, 0);
+      held.group.rotation.copy(held.homeRotation);
       this.updateAppearance(held);
     });
   }
@@ -190,106 +193,14 @@ export class LibraryRenderer {
   }
 
   private addRoom(layout: readonly LibraryPosition[]): void {
-    const shelves = Math.max(1, Math.ceil(layout.length / 80));
-    this.roomEnd = Math.max(7, Math.ceil(shelves / 2) * SHELF_ROW_DISTANCE + 1);
-    const depth = this.roomEnd + 5;
-    const center = (this.roomEnd - 5) / 2;
-    const wood = new THREE.MeshStandardMaterial({ color: 0x38291f, roughness: 0.65 });
-    const trim = new THREE.MeshStandardMaterial({ color: 0x84623b, roughness: 0.5, metalness: 0.35 });
-    const plaster = new THREE.MeshStandardMaterial({ color: 0x726b57, roughness: 1 });
-    const box = (size: [number, number, number], position: [number, number, number], material: THREE.Material) => {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material);
-      mesh.position.set(...position);
-      this.scene.add(mesh);
-      this.roomObjects.push(mesh);
-      return mesh;
-    };
-    const floorTexture = this.floorTexture();
-    floorTexture.repeat.set(4, depth / 3);
-    box([9, 0.08, depth], [0, -0.04, center], new THREE.MeshStandardMaterial({ map: floorTexture, roughness: 0.7 }));
-    box([9, 0.08, depth], [0, 3.4, center], plaster);
-    for (const x of [-4.5, 4.5]) {
-      box([0.15, 3.4, depth], [x, 1.7, center], plaster);
-      box([0.2, 0.22, depth], [x, 0.11, center], wood);
-      box([0.25, 0.16, depth], [x, 3.22, center], trim);
-    }
-    box([9, 3.4, 0.15], [0, 1.7, this.roomEnd], plaster);
-    box([9, 0.24, 0.2], [0, 0.12, this.roomEnd - 0.1], wood);
-    // A woven runner leads into the room without obstructing the shelves.
-    box([1.6, 0.012, depth - 1], [0, 0.008, center], new THREE.MeshStandardMaterial({ color: 0x344944, roughness: 1 }));
-    for (const x of [-0.73, 0.73]) box([0.025, 0.014, depth - 1], [x, 0.01, center], trim);
-    this.scene.add(new THREE.HemisphereLight(0xffecd3, 0x554b38, 2.4));
-    const daylight = new THREE.DirectionalLight(0xffebcb, 2.2);
-    daylight.position.set(-3, 5, -4);
-    this.scene.add(daylight);
-    const glow = new THREE.MeshStandardMaterial({ color: 0xffdf9f, emissive: 0xffbc60, emissiveIntensity: 2 });
-    for (let z = -1.5; z < this.roomEnd; z += SHELF_ROW_DISTANCE) {
-      box([1.1, 0.05, 0.4], [0, 3.28, z], trim);
-      box([0.95, 0.025, 0.28], [0, 3.24, z], glow);
-      const lamp = new THREE.PointLight(0xffd6a0, 12, 6, 2);
-      lamp.position.set(0, 2.9, z);
-      this.scene.add(lamp);
-      for (const x of [-4.39, 4.39]) {
-        box([0.06, 0.8, 0.34], [x, 2.05, z], trim);
-        box([0.07, 0.55, 0.23], [x, 2.05, z], glow);
-      }
-    }
-    for (let shelf = 0; shelf < shelves; shelf++) {
-      const row = Math.floor(shelf / 2);
-      const column = shelf % 2;
-      const x = (column - 0.5) * SHELF_COLUMN_DISTANCE;
-      const z = row * SHELF_ROW_DISTANCE;
-      box([1.65, 1.9, 0.09], [x, 1.05, z + 0.14], wood);
-      for (const side of [-0.79, 0.79]) box([0.09, 1.9, 0.48], [x + side, 1.05, z - 0.05], wood);
-      box([1.8, 0.12, 0.55], [x, 2.02, z - 0.05], wood);
-      box([1.8, 0.12, 0.55], [x, 0.16, z - 0.05], wood);
-      box([1.72, 0.025, 0.025], [x, 1.95, z - 0.33], trim);
-      this.collisions.push(
-        new THREE.Box3(new THREE.Vector3(x - 0.9, 0, z - 0.32), new THREE.Vector3(x + 0.9, 2.1, z + 0.22))
-      );
-      SHELF_LEVELS.forEach(level => {
-        box([1.6, 0.045, 0.48], [x, level - 0.0225, z - 0.05], wood);
-        box([1.5, 0.012, 0.025], [x, level - 0.055, z - 0.27], glow);
-      });
-    }
+    const room = addLibraryRoom(this.scene, layout, this.renderer.capabilities.getMaxAnisotropy());
+    this.roomEnd = room.end;
+    this.roomObjects.push(...room.obstacles);
+    this.collisions.push(...room.collisions);
+    this.disposables.push(room.dispose);
   }
 
-  private floorTexture(): THREE.CanvasTexture {
-    const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d')!;
-    ctx.fillStyle = '#584331';
-    ctx.fillRect(0, 0, 512, 512);
-    for (let row = 0; row < 8; row++) {
-      for (let column = -1; column < 3; column++) {
-        const x = column * 256 + (row % 2) * 128;
-        ctx.fillStyle = ['#806348', '#73563d', '#8a6b4d', '#765a42'][(row + column + 4) % 4];
-        ctx.fillRect(x + 1, row * 64 + 1, 254, 62);
-        for (let grain = 0; grain < 12; grain++) {
-          ctx.strokeStyle = grain % 2 ? '#ffffff08' : '#20150a12';
-          ctx.beginPath();
-          ctx.moveTo(x + 2, row * 64 + grain * 5 + 2);
-          ctx.bezierCurveTo(
-            x + 70,
-            row * 64 + grain * 5,
-            x + 180,
-            row * 64 + grain * 5 + 6,
-            x + 254,
-            row * 64 + grain * 5 + 2
-          );
-          ctx.stroke();
-        }
-      }
-    }
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-    texture.anisotropy = Math.min(4, this.renderer.capabilities.getMaxAnisotropy());
-    return texture;
-  }
-
-  private addBook(item: LibraryPosition): void {
+  private addBook(item: LibraryPosition, showcase = false): void {
     const group = new THREE.Group();
     const spine = new THREE.MeshStandardMaterial({ map: this.spineTexture(item.book), roughness: 0.7 });
     const pages = new THREE.MeshStandardMaterial({ color: 0xe8d9b7, roughness: 1 });
@@ -302,8 +213,13 @@ export class LibraryRenderer {
     group.add(body);
     const home = new THREE.Vector3(...item.position);
     group.position.copy(home);
+    group.rotation.y = item.rotation;
+    if (showcase) {
+      group.scale.setScalar(1.2);
+      group.rotation.y = -Math.PI / 2;
+    }
     this.scene.add(group);
-    this.books.push({ book: item.book, group, home, body, materials });
+    this.books.push({ book: item.book, group, home, body, materials, homeRotation: group.rotation.clone() });
     const coverUrl = item.book.cover?.trim();
     if (coverUrl) {
       new THREE.TextureLoader().load(
@@ -491,19 +407,19 @@ export class LibraryRenderer {
   private setSelected(book: BookObject | undefined): void {
     const previous = this.selected;
     this.selected = book;
-    if (previous) this.updateAppearance(previous);
-    if (book) this.updateAppearance(book);
+    this.books
+      .filter(item => item.book.isbn === previous?.book.isbn || item.book.isbn === book?.book.isbn)
+      .forEach(item => this.updateAppearance(item));
     this.options.onSelect(book?.book.isbn);
   }
 
   private updateAppearance(book: BookObject): void {
     const muted = this.searchMatches && !this.searchMatches.has(book.book.isbn) && book !== this.held;
     book.body.material = muted ? this.mutedMaterial : book.materials;
-    const selected = book === this.selected;
-    const match =
-      this.searchMatches && this.searchMatches.size < this.books.length && this.searchMatches.has(book.book.isbn);
+    const selected = book.book.isbn === this.selected?.book.isbn;
+    const match = this.filtering && this.searchMatches?.has(book.book.isbn);
     book.materials.forEach(material => {
-      material.emissive.set(selected || match ? 0x5b321b : 0x000000);
+      material.emissive.set(selected || match ? 0x146576 : 0x000000);
       material.emissiveIntensity = selected ? 0.7 : match ? 0.3 : 0;
     });
   }
@@ -515,11 +431,12 @@ export class LibraryRenderer {
     // HTML/keyboard selection has no picked point. Check the exposed spine as well
     // as the centre: shelf boards can obscure the centre at close range.
     const center = bounds.getCenter(new THREE.Vector3());
-    const front = this.camera.position.z < center.z ? bounds.min.z + 0.0001 : bounds.max.z - 0.0001;
     return [
       center,
-      ...[0.1, 0.5, 0.9].map(
-        height => new THREE.Vector3(center.x, bounds.min.y + (bounds.max.y - bounds.min.y) * height, front)
+      ...[0.1, 0.5, 0.9].map(height =>
+        new THREE.Vector3(0, (height - 0.5) * BOOK_HEIGHT, -BOOK_DEPTH / 2 - 0.0001).applyMatrix4(
+          book.group.matrixWorld
+        )
       )
     ].some(target => this.hasFreeSight(book, target));
   }
@@ -542,6 +459,7 @@ export class LibraryRenderer {
     this.finishAnimation();
     if (this.options.reducedMotion) {
       object.position.copy(target);
+      object.updateWorldMatrix(true, true);
       done?.();
       return;
     }
@@ -553,6 +471,7 @@ export class LibraryRenderer {
     this.animation = undefined;
     if (!animation) return;
     animation.object.position.copy(animation.target);
+    animation.object.updateWorldMatrix(true, true);
     animation.done?.();
   }
 

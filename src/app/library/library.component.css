@@ -7,8 +7,8 @@
   grid-template-columns: minmax(0, 1fr) 300px;
   grid-template-rows: auto minmax(0, 1fr) auto;
   height: max(640px, calc(100dvh - 110px));
-  background: #171714;
-  color: #f1ebdf;
+  background: #101722;
+  color: #e8f0f2;
   isolation: isolate;
   color-scheme: dark;
 }
@@ -18,7 +18,7 @@
   border-bottom: 1px solid #ffffff12;
 }
 .library-back {
-  color: #c9ac76;
+  color: #91dce8;
   font-size: 10px;
   letter-spacing: 0.12em;
   text-decoration: none;
@@ -33,7 +33,7 @@
 .library-heading p {
   margin: 0;
   font-size: 12px;
-  color: #a6a294;
+  color: #9cabb5;
 }
 .library-scene {
   grid-area: 2 / 1;
@@ -41,27 +41,27 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: #302b23;
+  background: #111925;
 }
 .library-search {
   grid-area: 1 / 2;
   padding: 22px 20px;
   border-left: 1px solid #ffffff12;
   border-bottom: 1px solid #ffffff12;
-  background: #1e1e19;
+  background: linear-gradient(145deg, #1b2935, #111925);
 }
 .library-search label {
   display: block;
   margin-bottom: 10px;
   font-size: 11px;
-  color: #c9ac76;
+  color: #91dce8;
   letter-spacing: 0.06em;
 }
 .library-search input {
   width: 100%;
   padding: 10px 12px;
   font-size: 12px;
-  color: #f1ebdf;
+  color: #e8f0f2;
   background: #ffffff06;
   border: 1px solid #ffffff20;
   border-radius: 6px;
@@ -87,20 +87,20 @@
 .library-status a {
   padding: 8px 12px;
   font-size: 11px;
-  color: #e8dfce;
+  color: #d6e5eb;
   background: #ffffff08;
   border: 1px solid #ffffff24;
   text-decoration: none;
 }
 .library-controls button:first-child {
-  color: #211c13;
-  background: #d4b681;
-  border-color: #d4b681;
+  color: #10212a;
+  background: #8ddce9;
+  border-color: #8ddce9;
 }
 .library-controls p {
   flex-basis: 100%;
   margin: 3px 0 0;
-  color: #99978b;
+  color: #9caab4;
   font-size: 10px;
 }
 .library-list {
@@ -108,22 +108,22 @@
   min-height: 0;
   overflow: auto;
   padding: 20px;
-  background: #1e1e19;
+  background: #141e2a;
   border-left: 1px solid #ffffff12;
   scrollbar-width: thin;
-  scrollbar-color: #615a47 transparent;
+  scrollbar-color: #426274 transparent;
 }
 .library-list h2 {
   display: flex;
   justify-content: space-between;
   margin: 0 0 14px;
-  color: #b4afa1;
+  color: #a7b8c2;
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.05em;
 }
 .library-list h2 span {
-  color: #d4b681;
+  color: #8ddce9;
 }
 .library-result {
   padding: 10px 0;
@@ -143,7 +143,7 @@
 }
 .library-list button.selected,
 .library-list button:hover {
-  background: #d4b68112;
+  background: #8ddce912;
 }
 .library-list button:disabled {
   opacity: 0.4;
@@ -159,7 +159,7 @@
 }
 .library-list small {
   display: block;
-  color: #9b988b;
+  color: #93a6b4;
   font-size: 10px;
   line-height: 1.6;
   margin-top: 5px;
@@ -168,7 +168,7 @@
 .library-list .library-result-details {
   padding: 6px 8px;
   font-size: 10px;
-  color: #c9ac76;
+  color: #91dce8;
 }
 .library-book {
   position: relative;
@@ -179,10 +179,11 @@
   margin: 16px;
   width: min(320px, calc(100% - 32px));
   padding: 16px;
-  background: #1b1b17ef;
-  border: 1px solid #c9ac7640;
+  background: #111d2aeb;
+  border: 1px solid #91dce840;
   border-radius: 8px;
-  box-shadow: 0 8px 30px #0004;
+  box-shadow: 0 8px 30px #0006;
+  backdrop-filter: blur(16px);
 }
 .library-book h2 {
   margin: 0 0 8px;
@@ -207,7 +208,7 @@
   gap: 8px;
   margin: 6px 0;
   font-size: 11px;
-  color: #b4afa1;
+  color: #a7b8c2;
 }
 .library-book-meta span:first-child {
   overflow: hidden;
@@ -226,7 +227,7 @@
 .library-book p {
   margin: 4px 0;
   font-size: 12px;
-  color: #b4afa1;
+  color: #a7b8c2;
 }
 .library-book button {
   min-height: 44px;
@@ -243,9 +244,9 @@
   transform: translate(-50%, -50%);
   width: min(380px, 80%);
   padding: 28px;
-  border: 1px solid #c9ac7640;
+  border: 1px solid #91dce840;
   border-radius: 8px;
-  background: #1b1b17f5;
+  background: #111d2af5;
   text-align: center;
 }
 .library-status h2 {
@@ -255,11 +256,11 @@
     serif;
 }
 .library-status p {
-  color: #b4afa1;
+  color: #a7b8c2;
   font-size: 13px;
 }
 .library :focus-visible {
-  outline: 2px solid #e6c38a;
+  outline: 2px solid #9cecff;
   outline-offset: 3px;
 }
 @media (max-width: 760px) {

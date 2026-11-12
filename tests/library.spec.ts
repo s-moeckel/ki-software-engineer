@@ -148,8 +148,13 @@ test('mouse wheel zooms only a held book and right mouse cannot walk while inspe
   await page.evaluate(() => {
     const component = Reflect.get(window, 'ng').getComponent(document.querySelector('app-library'));
     const renderer = Reflect.get(component, 'renderer');
-    renderer.camera.position.set(-2.965, 1.65, -1.3);
-    renderer.camera.lookAt(-2.965, 0.57, -0.12);
+    const first = renderer.books[0];
+    renderer.camera.position.set(
+      first.home.x - Math.sin(first.homeRotation.y) * 1.1,
+      1.65,
+      first.home.z - Math.cos(first.homeRotation.y) * 1.1
+    );
+    renderer.camera.lookAt(renderer.books[0].home);
   });
   await page
     .getByRole('complementary', { name: 'Bücherliste' })
@@ -186,7 +191,7 @@ test('mouse movement respects shelf and wall collisions', async ({ page }) => {
   const bounds = (await canvas.boundingBox())!;
   await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
   for (const position of [
-    { x: -2.3, z: -0.7, limit: -0.57 },
+    { x: 0, z: 0.2, limit: 0.53 },
     { x: 0, z: 6.5, limit: 6.6 }
   ]) {
     await page.evaluate(({ x, z }) => {
@@ -197,12 +202,13 @@ test('mouse movement respects shelf and wall collisions', async ({ page }) => {
     }, position);
     await page.mouse.down({ button: 'right' });
     await expect.poll(async () => (await cameraState(page)).z).toBeGreaterThan(position.z);
-    await page.waitForTimeout(250);
-    const stopped = await cameraState(page);
-    expect(stopped.z).toBeLessThanOrEqual(position.limit);
-    expect(stopped.y).toBe(1.65);
-    await page.waitForTimeout(200);
-    expect(await cameraState(page)).toEqual(stopped);
+    await expect(async () => {
+      const stopped = await cameraState(page);
+      expect(stopped.z).toBeLessThanOrEqual(position.limit);
+      expect(stopped.y).toBe(1.65);
+      await page.waitForTimeout(200);
+      expect(await cameraState(page)).toEqual(stopped);
+    }).toPass({ timeout: 10_000 });
     await page.mouse.up({ button: 'right' });
   }
 });
@@ -218,7 +224,12 @@ test('clicking a reachable book takes it out and Escape restores book and contro
       Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
       'renderer'
     );
-    renderer.camera.position.set(-2.965, 1.65, -1.3);
+    const first = renderer.books[0];
+    renderer.camera.position.set(
+      first.home.x - Math.sin(first.homeRotation.y) * 1.1,
+      1.65,
+      first.home.z - Math.cos(first.homeRotation.y) * 1.1
+    );
     renderer.camera.lookAt(renderer.books[0].home);
     renderer.camera.updateMatrixWorld();
   });
@@ -273,7 +284,12 @@ for (const reducedMotion of ['reduce', 'no-preference'] as const) {
         Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
         'renderer'
       );
-      renderer.camera.position.set(-2.965, 1.65, -1.3);
+      const first = renderer.books[0];
+      renderer.camera.position.set(
+        first.home.x - Math.sin(first.homeRotation.y) * 1.1,
+        1.65,
+        first.home.z - Math.cos(first.homeRotation.y) * 1.1
+      );
       renderer.camera.lookAt(renderer.books[0].home);
       renderer.camera.updateMatrixWorld();
     });
@@ -348,7 +364,12 @@ test('book actions fit without an internal scrollbar with long metadata on deskt
       Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
       'renderer'
     );
-    renderer.camera.position.set(-2.965, 1.65, -1.3);
+    const first = renderer.books[0];
+    renderer.camera.position.set(
+      first.home.x - Math.sin(first.homeRotation.y) * 1.1,
+      1.65,
+      first.home.z - Math.cos(first.homeRotation.y) * 1.1
+    );
     renderer.camera.lookAt(renderer.books[0].home);
     renderer.camera.updateMatrixWorld();
   });
@@ -395,8 +416,9 @@ for (const interaction of ['canvas', 'HTML', 'keyboard'] as const) {
         'renderer'
       );
       const home = renderer.books[0].home;
-      renderer.camera.position.set(home.x, 1.65, -1.1);
-      renderer.camera.lookAt(home.x, home.y - 0.09, home.z - 0.08);
+      const angle = renderer.books[0].homeRotation.y;
+      renderer.camera.position.set(home.x - Math.sin(angle) * 1.1, 1.65, home.z - Math.cos(angle) * 1.1);
+      renderer.camera.lookAt(home.x - Math.sin(angle) * 0.08, home.y - 0.09, home.z - Math.cos(angle) * 0.08);
       renderer.camera.updateMatrixWorld();
     });
     if (interaction === 'canvas') {
@@ -425,7 +447,9 @@ test('distant and obstructed books cannot be taken out', async ({ page }) => {
       Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
       'renderer'
     );
-    renderer.camera.position.set(-2.965, 1.65, -3.6);
+    const home = renderer.books[0].home;
+    const angle = renderer.books[0].homeRotation.y;
+    renderer.camera.position.set(home.x - Math.sin(angle) * 3, 1.65, home.z - Math.cos(angle) * 3);
     renderer.camera.lookAt(renderer.books[0].home);
     renderer.camera.updateMatrixWorld();
   });
@@ -440,7 +464,9 @@ test('distant and obstructed books cannot be taken out', async ({ page }) => {
       Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
       'renderer'
     );
-    renderer.camera.position.set(-2.965, 0.57, 0.9);
+    const home = renderer.books[0].home;
+    const angle = renderer.books[0].homeRotation.y;
+    renderer.camera.position.set(home.x + Math.sin(angle) * 0.6, home.y, home.z + Math.cos(angle) * 0.6);
     renderer.camera.lookAt(renderer.books[0].home);
     renderer.camera.updateMatrixWorld();
   });
@@ -488,9 +514,10 @@ test('search greys out nonmatches, leaves positions unchanged and restores cover
   const initial = await appearance();
   const search = page.getByRole('searchbox', { name: 'Bibliothek durchsuchen' });
   await search.fill('Angular');
+  // Search affects the sorted shelf books and their interactive display copies.
   await expect
     .poll(async () => (await appearance()).map((item: { muted: boolean }) => item.muted))
-    .toEqual([false, true]);
+    .toEqual([false, true, false, true]);
   expect(
     (await appearance()).map((item: { position: number[]; scale: number[] }) => [item.position, item.scale])
   ).toEqual(initial.map((item: { position: number[]; scale: number[] }) => [item.position, item.scale]));

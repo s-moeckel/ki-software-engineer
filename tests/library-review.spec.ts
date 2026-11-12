@@ -37,7 +37,12 @@ test('starting another inspection completes an in-flight return instead of stran
   await page.evaluate(() => {
     const component = Reflect.get(window, 'ng').getComponent(document.querySelector('app-library'));
     const renderer = Reflect.get(component, 'renderer');
-    renderer.camera.position.set(-2.965, 1.65, -1.3);
+    const first = renderer.books[0];
+    renderer.camera.position.set(
+      first.home.x - Math.sin(first.homeRotation.y) * 1.1,
+      1.65,
+      first.home.z - Math.cos(first.homeRotation.y) * 1.1
+    );
     renderer.camera.lookAt(renderer.books[0].home);
     component.choose(component.books()[0]);
     component.inspectBook();
@@ -60,12 +65,14 @@ test('starting another inspection completes an in-flight return instead of stran
     component.returnBook();
     component.choose(component.books()[1]);
     const home = renderer.books[1].home;
-    renderer.camera.position.set(home.x + 0.6, 1.65, -1.3);
+    const angle = renderer.books[1].homeRotation.y;
+    renderer.camera.position.set(home.x - Math.sin(angle) * 1.1, 1.65, home.z - Math.cos(angle) * 1.1);
     renderer.camera.lookAt(home);
     component.inspectBook();
     return {
       returnedDistance: renderer.books[0].group.position.distanceTo(renderer.books[0].home),
       returnedRotation: renderer.books[0].group.rotation.toArray().slice(0, 3),
+      homeRotation: renderer.books[0].homeRotation.toArray().slice(0, 3),
       held: renderer.held?.book.isbn,
       selected: component.selected()?.isbn
     };
@@ -73,7 +80,7 @@ test('starting another inspection completes an in-flight return instead of stran
   expect(state.held).toBe(other.isbn);
   expect(state.selected).toBe(other.isbn);
   expect(state.returnedDistance).toBe(0);
-  expect(state.returnedRotation).toEqual([0, 0, 0]);
+  expect(state.returnedRotation).toEqual(state.homeRotation);
 });
 
 test('WebGL context loss stops frames, releases the scene and preserves HTML detail access', async ({ page }) => {
@@ -176,7 +183,12 @@ test('reset restores position, rotation and FOV and returns the held book', asyn
       Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
       'renderer'
     );
-    renderer.camera.position.set(-2.965, 1.65, -1.3);
+    const first = renderer.books[0];
+    renderer.camera.position.set(
+      first.home.x - Math.sin(first.homeRotation.y) * 1.1,
+      1.65,
+      first.home.z - Math.cos(first.homeRotation.y) * 1.1
+    );
     renderer.camera.lookAt(renderer.books[0].home);
     renderer.camera.updateMatrixWorld();
   });
@@ -198,13 +210,13 @@ test('reset restores position, rotation and FOV and returns the held book', asyn
         bookDistance: renderer.books[0].group.position.distanceTo(renderer.books[0].home)
       };
     });
-  expect((await state()).fov).toBe(60);
+  expect((await state()).fov).toBe(50);
   await page.getByRole('button', { name: 'Ansicht zurücksetzen' }).click();
   const reset = await state();
-  expect(reset.position).toEqual([0, 1.65, -3.6]);
+  expect(reset.position).toEqual([0, 1.65, -2.8]);
   expect(reset.rotation).toEqual([-0.08, Math.PI, 0]);
-  expect(reset.fov).toBe(65);
-  expect(reset.projection).toBeCloseTo(1 / Math.tan((65 * Math.PI) / 360));
+  expect(reset.fov).toBe(55);
+  expect(reset.projection).toBeCloseTo(1 / Math.tan((55 * Math.PI) / 360));
   expect(reset.bookDistance).toBe(0);
   await expect(panel.getByRole('button', { name: 'Zurück ins Regal' })).toHaveCount(0);
 });
@@ -229,7 +241,12 @@ for (const reducedMotion of ['reduce', 'no-preference'] as const) {
         Reflect.get(window, 'ng').getComponent(document.querySelector('app-library')),
         'renderer'
       );
-      renderer.camera.position.set(-2.965, 1.65, -1.3);
+      const first = renderer.books[0];
+      renderer.camera.position.set(
+        first.home.x - Math.sin(first.homeRotation.y) * 1.1,
+        1.65,
+        first.home.z - Math.cos(first.homeRotation.y) * 1.1
+      );
       renderer.camera.lookAt(renderer.books[0].home);
       renderer.camera.updateMatrixWorld();
     });

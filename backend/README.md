@@ -88,15 +88,19 @@ vom Frontend durch einen Fallback ersetzt.
 
 ## Cover-Cache
 
-Open-Library-Cover werden in allen Ansichten über `GET /covers?url=…` geladen.
+Open-Library-Cover, ISBN.de-Cover und Roman-Cover von `www.andreaseschbach.de` werden in allen
+Ansichten über `GET /covers?url=…` geladen.
 Das Backend speichert erfolgreiche Downloads dauerhaft als BLOB in der Tabelle
 `cover_cache` derselben SQLite-Datei. Ein erneuter Aufruf benötigt dann keinen
 externen Abruf, auch nach einem Backend-Neustart. Der Browser darf erfolgreiche
 Bildantworten zusätzlich einen Tag zwischenspeichern.
 
 Der erste Abruf bleibt von Open Library abhängig. Es laufen höchstens vier
-externe Abrufe gleichzeitig und höchstens 90 innerhalb von fünf Minuten,
-einschließlich Weiterleitungen. Gleichzeitige Anfragen derselben URL teilen sich
+externe Abrufe gleichzeitig. Open Library einschließlich seiner Weiterleitungen
+ist auf höchstens 90 Abrufe in fünf Minuten begrenzt; BIC Media und Amazon-Bilder auf je 90 pro Minute
+und ISBN.de auf 20 pro Minute.
+Abrufbudgets und Fehlerpausen werden getrennt pro Quelle geführt, damit eine
+nicht verfügbare Quelle die Ersatzquelle nicht blockiert. Gleichzeitige Anfragen derselben URL teilen sich
 einen Download. Das liegt unter dem dokumentierten
 [Limit für ISBN-basierte Cover](https://openlibrary.org/dev/docs/api/covers#rate-limiting).
 Der Cache lädt nur angeforderte Cover, ohne vollständigen Katalog-Download.
@@ -109,10 +113,42 @@ Nach Ablauf der Pause beim erneuten Öffnen der Ansicht oder Neuladen erneut ver
 Ein warmer Cache verbessert Folgeladevorgänge; der erstmalige Aufbau für viele Bilder
 unterliegt weiterhin dem Anbieterlimit.
 
+Ein Cache kann ein beim Anbieter fehlendes Bild nicht herstellen. Liefert Open
+Library kein Bild oder ist vorübergehend nicht erreichbar, werden automatisch
+`https://www.bic-media.com/dmrs/cover.do?isbn=<ISBN-13>&width=600`,
+für ISBNs mit Präfix 978 die Amazon-Bildquelle mit berechneter ISBN-10 und danach
+`https://buch.isbn.de/cover/<ISBN-13>.jpg` versucht. Erfolgreiche Ersatzbilder werden
+ebenfalls dauerhaft gespeichert. Das gilt für den gesamten ISBN-13-Bestand, auch
+bei bereits gespeicherten Open-Library-404-Antworten. Der bekannte HTTP-200-
+Platzhalter „Kein Bild gefunden“, Weiterleitungen auf `/nopic.png` sowie leere
+oder bekannte weiße BIC-Media-Platzhalter werden als 404 behandelt und nicht als
+Buchcover gespeichert. Einpixel-GIFs der Amazon-Bildquelle gelten ebenfalls als
+fehlend. Eine vorübergehend nicht verfügbare Quelle bleibt als wiederholbarer
+Fehler erhalten, wenn keine andere Quelle ein Cover liefert; eine spätere 404
+verdeckt diesen Zustand nicht. HTTP 403/429 pausiert die betroffene Quelle für mindestens
+fünf Minuten; ein längerer `Retry-After`-Wert wird berücksichtigt.
+
+Für geprüfte Titelcover enthält `src/cover-fallbacks.ts` zusätzlich eine Zuordnung nach ISBN. Bei
+„Teufelsgold“ wird nach einer Open-Library-404 das Cover von der offiziellen
+Autorenseite geladen und ebenfalls dauerhaft gespeichert. Das gilt auch für
+bereits gespeicherte 404-Antworten. Dieses Titelcover zeigt die Hardcovergestaltung;
+es muss nicht dem Umschlag der katalogisierten Taschenbuchausgabe entsprechen.
+Eigene Cover-URLs und vorhandene erfolgreiche Open-Library-Bilder bleiben erhalten.
+
 Downloads haben ein Timeout von acht Sekunden pro HTTP-Abruf und ein Größenlimit
-von drei MiB. Es werden nur validierte Open-Library-Cover-URLs und JPEG-, PNG-, GIF-
-oder WebP-Daten akzeptiert. Weiterleitungen werden bis zu drei Schritte lang nur
-zu Open-Library-Covern und den offiziellen Internet-Archive-Cover-ZIP-/CDN-Adressen
+von drei MiB. Es werden nur validierte Open-Library-Cover-URLs, Roman-Cover unter
+`https://www.andreaseschbach.de/werke/romane/<roman>/files/<bild>` (JPG, JPEG, PNG
+oder WebP) und JPEG-, PNG-, GIF- oder WebP-Daten akzeptiert. Beispielsweise wird
+`https://www.andreaseschbach.de/werke/romane/schlaumann/files/Schlaumann.jpg`
+beim ersten erfolgreichen Abruf dauerhaft gespeichert. ISBN.de-URLs sind auf
+`https://buch.isbn.de/cover/<ISBN-13>.jpg` begrenzt. BIC Media ist ausschließlich
+für `/dmrs/cover.do` mit genau `isbn=<ISBN-13>` und `width=600` zugelassen.
+Amazon-Bilder sind auf `https://images-eu.ssl-images-amazon.com/images/P/<ISBN-10>.01.LZZZZZZZ.jpg`
+begrenzt. Unbekannte Hosts, andere Pfade und zusätzliche BIC-Parameter werden abgewiesen.
+Dazu diese URL als Cover
+im Bucheditor hinterlegen; der Erstabruf muss die Quelle erreichen können.
+Weiterleitungen werden bis zu drei Schritte lang nur
+zu diesen Cover-Quellen und den offiziellen Internet-Archive-Cover-ZIP-/CDN-Adressen
 verfolgt. Andere externe URLs, private Hosts und andere Archivdateien können nicht
 über den Endpunkt abgerufen werden.
 
