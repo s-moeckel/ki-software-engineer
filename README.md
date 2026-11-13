@@ -18,7 +18,7 @@ Ein Architekturreview mit Aufbau, Datenfluss, Risikobewertungen und priorisierte
 
 ## Angular conventions
 
-The application stays on Angular 20 and uses standalone components with OnPush
+The application uses Angular 21.2 and standalone components with OnPush
 change detection throughout. Local UI state uses Signals, derived values use
 computed Signals, and component bindings use signal inputs and function outputs.
 Templates use native control flow; the search and book editor use typed Reactive
@@ -26,11 +26,17 @@ Forms. Services use inject(), scene hosts use signal queries, and all four
 screens load through lazy routes. Three.js animation loops remain outside Angular;
 scene disposal and request cancellation remain tied to component lifecycles.
 
-The application regression suite uses Playwright with a mocked API. Run all
-product checks in Chromium (excluding the external Playwright example):
+The lockfile resolves Angular Framework and Compiler CLI to 21.2.26, CLI/Build/SSR to
+21.2.30, and Material/CDK to 21.2.14. The application retains Zone.js and typed
+Reactive Forms. Signal Forms are not part of this upgrade. Node.js 24.14.0,
+TypeScript 5.9.2 and RxJS 7.8.0 satisfy the Angular 21 requirements.
+
+The application regression suite uses Playwright with a mocked API. Chromium is
+the only configured browser project. Run all product checks (excluding the external
+Playwright example):
 
 ```sh
-npx playwright test tests/book-details.spec.ts tests/book-search.spec.ts tests/book-random.spec.ts tests/book-cover-cache.spec.ts tests/theme.spec.ts tests/library.spec.ts tests/library-review.spec.ts tests/library-data.spec.ts tests/book-universe.spec.ts tests/universe-data.spec.ts tests/isbn.spec.ts tests/reading-list.spec.ts tests/header-navigation.spec.ts --project=chromium --workers=1
+npx playwright test tests/book-create.spec.ts tests/book-details.spec.ts tests/book-pagination.spec.ts tests/book-search.spec.ts tests/book-random.spec.ts tests/book-cover-cache.spec.ts tests/theme.spec.ts tests/library.spec.ts tests/library-review.spec.ts tests/library-data.spec.ts tests/library-display.spec.ts tests/library-cover-cache.spec.ts tests/book-universe.spec.ts tests/universe-data.spec.ts tests/isbn.spec.ts tests/reading-list.spec.ts tests/header-navigation.spec.ts --workers=1
 ```
 
 ## Local Development
