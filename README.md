@@ -263,6 +263,12 @@ The Playwright suite starts Angular and mocks API responses; no running API is n
 It covers keyboard access, details, draft cancellation, validation, saving and search
 refresh, load/save failures, and a mobile viewport with a broken cover.
 Search checks cover debouncing, stale responses, clearing, empty results, and retry.
+The list loads ten books per page from the local backend, with previous/next buttons
+and page and total counts. Search and clear restart on page one; dialog refreshes
+preserve the search and page, falling back to the last valid page when results shrink.
+Run `npx playwright test tests/book-pagination.spec.ts` for pagination checks.
+Pagination requires `_page` support and a CORS-exposed `X-Total-Count` header from
+the backend. Legacy APIs without that header display only the first limited results.
 Detail requests time out after 15 seconds. An unconfirmed save keeps the draft visible
 and allows closing; reload the saved version before editing again. Reloading discards
 the draft. Closing after an unconfirmed save refreshes the list without claiming success.

@@ -176,16 +176,17 @@ eigene Migrationen.
 
 ## API-Vertrag
 
-| Anfrage                        | Verhalten                                                         |
-| ------------------------------ | ----------------------------------------------------------------- |
-| GET /books                     | Vollständige Sammlung als JSON-Array, stabil nach id sortiert     |
-| GET /books?\_limit=10          | Höchstens zehn Treffer; \_limit=0 liefert ein leeres Array        |
-| GET /books?q=asimov&\_limit=10 | Suche vor Begrenzung, ohne Beachtung der Groß-/Kleinschreibung    |
-| GET /books/:isbn               | Vollständiges Buch anhand der URL-kodierten ISBN                  |
-| POST /books                    | Buch anlegen; HTTP 201 mit vollständigem Buch und Location-Header |
-| PUT /books/:isbn               | Vollständiges Buch speichern und gespeicherten Stand zurückgeben  |
-| GET /health                    | HTTP 200 bei verfügbarer Datenbank, sonst 503                     |
-| GET /covers?url=…              | Open-Library-Cover aus SQLite oder begrenzter externer Erstabruf  |
+| Anfrage                        | Verhalten                                                                 |
+| ------------------------------ | ------------------------------------------------------------------------- |
+| GET /books                     | Vollständige Sammlung als JSON-Array, stabil nach id sortiert             |
+| GET /books?\_limit=10          | Höchstens zehn Treffer; \_limit=0 liefert ein leeres Array                |
+| GET /books?\_limit=10&\_page=2 | Zweite Seite mit bis zu zehn Treffern; Gesamtzahl im Header X-Total-Count |
+| GET /books?q=asimov&\_limit=10 | Suche vor Begrenzung, ohne Beachtung der Groß-/Kleinschreibung            |
+| GET /books/:isbn               | Vollständiges Buch anhand der URL-kodierten ISBN                          |
+| POST /books                    | Buch anlegen; HTTP 201 mit vollständigem Buch und Location-Header         |
+| PUT /books/:isbn               | Vollständiges Buch speichern und gespeicherten Stand zurückgeben          |
+| GET /health                    | HTTP 200 bei verfügbarer Datenbank, sonst 503                             |
+| GET /covers?url=…              | Open-Library-Cover aus SQLite oder begrenzter externer Erstabruf          |
 
 q ist eine zusammenhängende Teilzeichenfolge in Titel, Untertitel, Autor, Verlag,
 Beschreibung oder ISBN. Äußere Leerzeichen werden entfernt; Prozentzeichen und
@@ -193,6 +194,13 @@ Unterstriche werden wörtlich gesucht. Die Suche berücksichtigt Unicode-Groß- 
 Kleinschreibung. Maximal 500 Zeichen sind erlaubt. \_limit muss eine nichtnegative
 sichere ganze Zahl sein. Fehlende Parameter bedeuten keine Filterung/Begrenzung.
 Alle SQL-Werte werden über gebundene Parameter übergeben.
+
+`_page` zählt ab 1 und setzt ein positives `_limit` voraus. Beide Werte und der
+berechnete Offset müssen sichere ganze Zahlen sein; ungültige Parameter liefern
+HTTP 400. Ohne `_page` bleibt das bisherige Verhalten erhalten. Jede erfolgreiche
+Listenantwort enthält `X-Total-Count` mit der Trefferzahl vor der Seiteneinteilung;
+der Header ist über CORS lesbar. Eine Seite hinter dem letzten Treffer liefert ein
+leeres Array mit unveränderter Gesamtzahl. Die Sortierung nach `id` bleibt stabil.
 
 ```ts
 interface Book {

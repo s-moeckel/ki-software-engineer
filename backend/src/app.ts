@@ -21,6 +21,7 @@ export function createApp(
       res.set('Access-Control-Allow-Origin', origin);
       res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
       res.set('Access-Control-Allow-Headers', 'Content-Type');
+      res.set('Access-Control-Expose-Headers', 'X-Total-Count');
     }
     res.set('Cache-Control', 'no-store');
     if (req.method === 'OPTIONS') {
@@ -59,7 +60,7 @@ export function createApp(
   });
 
   app.get('/books', async (req, res) => {
-    const { q, _limit: limit } = req.query;
+    const { q, _limit: limit, _page: page } = req.query;
     if (
       (q !== undefined && (typeof q !== 'string' || q.length > 500)) ||
       (limit !== undefined &&
@@ -70,13 +71,34 @@ export function createApp(
         .json({ error: 'q muss ein Text (maximal 500 Zeichen), _limit eine nichtnegative ganze Zahl sein.' });
       return;
     }
+    const pageNumber = typeof page === 'string' ? Number(page) : 1;
+    const pageSize = limit === undefined ? -1 : Number(limit);
+    const offset = page === undefined ? 0 : (pageNumber - 1) * pageSize;
+    if (
+      page !== undefined &&
+      (typeof page !== 'string' ||
+        !/^\d+$/.test(page) ||
+        !Number.isSafeInteger(pageNumber) ||
+        pageNumber < 1 ||
+        pageSize < 1 ||
+        !Number.isSafeInteger(offset))
+    ) {
+      res
+        .status(400)
+        .json({ error: '_page muss eine positive sichere ganze Zahl mit positivem _limit und sicherem Offset sein.' });
+      return;
+    }
+    const query = typeof q === 'string' ? q.trim() : '';
+    const filter = `instr(fold(title || ' ' || subtitle || ' ' || author || ' ' || publisher || ' ' || abstract || ' ' || isbn), fold(?)) > 0`;
+    const total = database.prepare(`SELECT COUNT(*) AS total FROM books WHERE ${filter}`).get(query)!['total'];
     const result = database
       .prepare(
         `SELECT ${columns} FROM books
-       WHERE instr(fold(title || ' ' || subtitle || ' ' || author || ' ' || publisher || ' ' || abstract || ' ' || isbn), fold(?)) > 0
-       ORDER BY id COLLATE BINARY LIMIT ?`
+       WHERE ${filter}
+       ORDER BY id COLLATE BINARY LIMIT ? OFFSET ?`
       )
-      .all(typeof q === 'string' ? q.trim() : '', limit === undefined ? -1 : Number(limit));
+      .all(query, pageSize, offset);
+    res.set('X-Total-Count', String(total));
     res.json(result);
   });
 

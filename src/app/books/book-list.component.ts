@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, signal, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, input, signal, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogModule } from '@angular/material/dialog';
@@ -63,6 +63,29 @@ import { BookItemComponent } from './book-item.component';
       @if (loadError()) {
         <p role="alert">Could not load books. <button type="button" (click)="loadBooks()">Retry</button></p>
       }
+      <nav aria-label="Bücherseiten" class="flex flex-wrap items-center justify-center gap-4 my-6">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="changePage(-1)"
+          [disabled]="loading() || loadError() || page() <= 1"
+        >
+          Zurück
+        </button>
+        <p role="status" aria-atomic="true">
+          @if (!loading() && !loadError()) {
+            Seite {{ page() }} von {{ pageCount() }} · {{ total() }} Bücher
+          }
+        </p>
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="changePage(1)"
+          [disabled]="loading() || loadError() || page() >= pageCount()"
+        >
+          Weiter
+        </button>
+      </nav>
       @if (!loading() && !loadError()) {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
           @for (book of books(); track book.id) {
@@ -113,6 +136,9 @@ export class BookListComponent implements OnInit {
   readonly loading = signal(true);
   readonly search = new FormControl('', { nonNullable: true });
   readonly loadError = signal(false);
+  readonly page = signal(1);
+  readonly total = signal(0);
+  readonly pageCount = computed(() => Math.max(1, Math.ceil(this.total() / this.pageSize())));
   private searchTimeout?: ReturnType<typeof setTimeout>;
   private listRequest?: Subscription;
   private readonly destroyRef = inject(DestroyRef);
@@ -136,11 +162,17 @@ export class BookListComponent implements OnInit {
     this.loading.set(true);
     this.loadError.set(false);
     this.listRequest = this.bookApiClient
-      .getBooks(this.pageSize(), this.search.value)
+      .getBooks(this.pageSize(), this.search.value, this.page())
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: books => {
-          this.books.set(books);
+        next: result => {
+          this.total.set(result.total);
+          if (this.page() > this.pageCount()) {
+            this.page.set(this.pageCount());
+            this.loadBooks();
+            return;
+          }
+          this.books.set(result.books);
           this.loading.set(false);
         },
         error: () => {
@@ -151,6 +183,7 @@ export class BookListComponent implements OnInit {
   }
 
   onSearchChange(): void {
+    this.page.set(1);
     clearTimeout(this.searchTimeout);
     // Invalidate the previous search immediately, including its in-flight response.
     this.listRequest?.unsubscribe();
@@ -170,7 +203,15 @@ export class BookListComponent implements OnInit {
   }
 
   clearSearch(): void {
+    this.page.set(1);
     this.search.setValue('', { emitEvent: false });
+    this.loadBooks();
+  }
+
+  changePage(direction: -1 | 1): void {
+    const page = this.page() + direction;
+    if (this.loading() || this.loadError() || page < 1 || page > this.pageCount()) return;
+    this.page.set(page);
     this.loadBooks();
   }
 }

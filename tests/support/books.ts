@@ -21,7 +21,10 @@ export function expectListRequest(route: Route): URL {
   expect(route.request().method()).toBe('GET');
   expect(url.pathname).toBe('/books');
   expect(url.searchParams.get('_limit')).toBe('10');
-  expect([...url.searchParams.keys()].sort()).toEqual(url.searchParams.has('q') ? ['_limit', 'q'] : ['_limit']);
+  expect(url.searchParams.get('_page')).toBe('1');
+  expect([...url.searchParams.keys()].sort()).toEqual(
+    url.searchParams.has('q') ? ['_limit', '_page', 'q'] : ['_limit', '_page']
+  );
   return url;
 }
 
