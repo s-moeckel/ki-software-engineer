@@ -17,9 +17,13 @@ export async function initializeDatabase(database: DatabaseSync): Promise<number
   database.exec('BEGIN IMMEDIATE');
   try {
     database.exec(schema);
+    const columns = database.prepare('PRAGMA table_info(books)').all();
+    if (!columns.some(column => column['name'] === 'publicationDate')) {
+      database.exec("ALTER TABLE books ADD COLUMN publicationDate text NOT NULL DEFAULT ''");
+    }
     const insert = database.prepare(
-      `INSERT INTO books (id, isbn, title, subtitle, author, publisher, "numPages", price, cover, abstract, "userId")
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (isbn) DO NOTHING`
+      `INSERT INTO books (id, isbn, title, subtitle, author, publisher, "numPages", price, cover, abstract, "userId", publicationDate)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (isbn) DO NOTHING`
     );
     let inserted = 0;
     for (const book of books) {
@@ -34,7 +38,8 @@ export async function initializeDatabase(database: DatabaseSync): Promise<number
         book.price,
         book.cover,
         book.abstract,
-        book.userId
+        book.userId,
+        book.publicationDate ?? ''
       );
       inserted += Number(result.changes);
     }

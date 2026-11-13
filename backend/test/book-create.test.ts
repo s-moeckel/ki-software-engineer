@@ -58,7 +58,8 @@ test('POST validates, creates persistent books and rejects concurrent ISBN dupli
       publisher: '',
       price: '',
       cover: '',
-      abstract: ''
+      abstract: '',
+      publicationDate: ''
     });
     assert.match((await responses.find(response => response.status === 409)!.json()).error, /ISBN.*bereits vorhanden/);
     assert.deepEqual(await (await fetch(`${url}/custom-isbn`)).json(), created);
@@ -74,7 +75,7 @@ test('POST validates, creates persistent books and rejects concurrent ISBN dupli
     };
     const second = (await (await post({ ...full, id: created.id, userId: 99 })).json()) as Book;
     assert.notEqual(second.id, created.id);
-    assert.deepEqual(second, { ...full, id: second.id, userId: 1 });
+    assert.deepEqual(second, { ...full, id: second.id, userId: 1, publicationDate: '' });
     const preflight = await fetch(url, {
       method: 'OPTIONS',
       headers: { Origin: 'http://localhost:4200', 'Access-Control-Request-Method': 'POST' }

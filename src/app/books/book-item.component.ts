@@ -27,7 +27,11 @@ import { CachedCoverPipe } from './cached-cover.pipe';
         }
       </div>
       <div class="p-5 flex flex-col flex-grow">
-        <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1 line-clamp-2">{{ book().title }}</h2>
+        @if (titleLevel() === 3) {
+          <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1 line-clamp-2">{{ book().title }}</h3>
+        } @else {
+          <h2 class="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-1 line-clamp-2">{{ book().title }}</h2>
+        }
         @if (book().subtitle) {
           <p class="text-sm text-gray-600 dark:text-gray-300 mb-2 line-clamp-2">
             {{ book().subtitle }}
@@ -57,6 +61,7 @@ import { CachedCoverPipe } from './cached-cover.pipe';
 })
 export class BookItemComponent {
   readonly book = input.required<Book>();
+  readonly titleLevel = input<2 | 3>(2);
   readonly details = output<Book>();
   readonly failedCover = signal<string | undefined>(undefined);
 }

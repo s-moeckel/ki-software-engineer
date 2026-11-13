@@ -4,6 +4,24 @@ Express-/TypeScript-API mit einer einfachen SQLite-Dateidatenbank und 1000 echte
 Science-Fiction-Titeln. Eine separate Datenbankinstallation und Docker werden lokal nicht benötigt.
 Die API bleibt mit dem bestehenden Angular-Frontend kompatibel.
 
+## Erscheinungsdatum und Neuerscheinungen
+
+`publicationDate` ist ein optionales Kalenderdatum der konkreten ISBN-Ausgabe
+im Format `YYYY-MM-DD` (Jahre 0001–9999). Leerer String oder fehlende Angabe
+bedeuten unbekannt. POST/PUT weisen ungültige Kalenderdaten mit HTTP 400 zurück.
+Antworten enthalten das Feld als String; ohne bekanntes Datum ist es leer.
+PUT ohne das Feld erhält den bisherigen Wert, ein leerer String löscht ihn.
+
+`GET /books/new-releases` liefert ein vollständiges `Book[]` ohne Paginierung:
+heute und die 89 vorherigen Kalendertage in `Europe/Berlin`, nach Datum absteigend
+und bei Gleichstand nach ISBN aufsteigend. Fehlende und zukünftige Daten sind
+ausgeschlossen. Die Route ist unabhängig von Suche und Sammlungspaginierung.
+
+Beim Start ergänzt eine transaktionale, wiederholbare Migration die Datumsspalte
+in vorhandenen Datenbanken mit leerem Standardwert. Bestehende Daten und
+Bearbeitungen bleiben erhalten; Erscheinungsdaten werden nicht recherchiert oder
+automatisch aus dem Startbestand nachgetragen.
+
 ## Einfach starten
 
 Voraussetzung: Node.js ab Version 24. Vom Repository-Root:

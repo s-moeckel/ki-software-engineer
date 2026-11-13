@@ -44,6 +44,12 @@
           <dt>Pages</dt>
           <dd>{{ currentBook.numPages }}</dd>
         </div>
+        @if (currentBook.publicationDate) {
+          <div>
+            <dt>Erscheinungsdatum</dt>
+            <dd>{{ currentBook.publicationDate + 'T00:00:00Z' | date: 'dd.MM.yyyy' : 'UTC' }}</dd>
+          </div>
+        }
         <div>
           <dt>Price</dt>
           <dd>{{ currentBook.price || '—' }}</dd>
@@ -86,6 +92,11 @@
       </mat-form-field>
       <mat-form-field><mat-label>Price</mat-label><input matInput formControlName="price" /></mat-form-field>
       <mat-form-field><mat-label>Cover URL</mat-label><input matInput formControlName="cover" /></mat-form-field>
+      <mat-form-field>
+        <mat-label>Erscheinungsdatum</mat-label>
+        <input matInput type="date" formControlName="publicationDate" min="0001-01-01" max="9999-12-31" />
+        <mat-error>Bitte geben Sie ein g?ltiges Erscheinungsdatum ein.</mat-error>
+      </mat-form-field>
       <mat-form-field class="sm:col-span-2"
         ><mat-label>Description</mat-label><textarea matInput formControlName="abstract" rows="5"></textarea>
       </mat-form-field>

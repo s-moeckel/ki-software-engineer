@@ -28,6 +28,7 @@ async function setup(page: Page, initial = 0) {
   };
   await page.route(/^https:\/\//, route => route.abort());
   await page.route(/^http:\/\/localhost:4730\/books(?:\/|\?|$)/, route => {
+    if (new URL(route.request().url()).pathname === '/books/new-releases') return route.fulfill({ json: [] });
     const isbn = decodeURIComponent(new URL(route.request().url()).pathname.slice('/books/'.length));
     return route.fulfill({ json: books.find(b => b.isbn === isbn) ?? books });
   });

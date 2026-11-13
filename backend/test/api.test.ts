@@ -41,6 +41,7 @@ async function listen() {
 
 before(async () => {
   seed = JSON.parse(await readFile(new URL('../data/books.json', import.meta.url), 'utf8')) as Book[];
+  seed = seed.map(book => ({ ...book, publicationDate: book.publicationDate ?? '' }));
   seed.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   const inserted = await Promise.all([initializeDatabase(database), initializeDatabase(database)]);
   assert.deepEqual(

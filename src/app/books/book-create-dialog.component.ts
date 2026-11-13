@@ -8,6 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { timeout, TimeoutError } from 'rxjs';
 import { Book } from './book';
+import { publicationDateValidator } from './publication-date';
 import { BookApiClient } from './book-api-client.service';
 
 @Component({
@@ -46,6 +47,7 @@ export class BookCreateDialogComponent {
     ]),
     subtitle: new FormControl('', { nonNullable: true }),
     publisher: new FormControl('', { nonNullable: true }),
+    publicationDate: new FormControl('', { nonNullable: true, validators: [publicationDateValidator] }),
     price: new FormControl('', { nonNullable: true }),
     cover: new FormControl('', { nonNullable: true }),
     abstract: new FormControl('', { nonNullable: true })

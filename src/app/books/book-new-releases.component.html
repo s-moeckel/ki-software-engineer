@@ -1,0 +1,64 @@
+<section aria-labelledby="new-releases-title" class="mb-12 min-w-0" [attr.aria-busy]="state() === 'loading'">
+  <div class="flex flex-wrap items-center justify-between gap-4 mb-5">
+    <div>
+      <h2 id="new-releases-title" class="text-2xl font-bold text-blue-700 dark:text-blue-300">Frisch erschienen</h2>
+      <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">Neuerscheinungen der letzten 90 Tage</p>
+    </div>
+    @if (state() === 'ready' && books().length > 0) {
+      <div class="flex gap-2">
+        <button
+          mat-stroked-button
+          type="button"
+          aria-label="Vorherige Neuerscheinungen"
+          aria-controls="new-releases-row"
+          (click)="scroll(-1)"
+        >
+          ←
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          aria-label="Weitere Neuerscheinungen"
+          aria-controls="new-releases-row"
+          (click)="scroll(1)"
+        >
+          →
+        </button>
+      </div>
+    }
+  </div>
+  @if (state() === 'loading') {
+    <p role="status" class="py-8 text-gray-600 dark:text-gray-300">Neuerscheinungen werden geladen…</p>
+  } @else if (state() === 'error') {
+    <p role="alert" class="mb-3">Neuerscheinungen konnten nicht geladen werden.</p>
+    <button mat-stroked-button type="button" (click)="load()">Erneut versuchen</button>
+  } @else if (books().length === 0) {
+    <p class="py-8 text-gray-600 dark:text-gray-300">Keine Neuerscheinungen in den letzten 90 Tagen</p>
+  } @else {
+    <div
+      #row
+      id="new-releases-row"
+      role="region"
+      aria-label="Neuerscheinungen durchblättern"
+      tabindex="0"
+      (keydown)="onKey($event)"
+      class="overflow-x-auto rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+    >
+      <ul class="flex gap-5 pb-4 pt-1 px-1 list-none m-0">
+        @for (book of books(); track book.isbn) {
+          <li class="flex-none w-56">
+            <app-book-item [book]="book" [titleLevel]="3" (details)="dialogs.openDetails($event.isbn)">
+              <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">
+                Erschienen am
+                <time [attr.datetime]="book.publicationDate">{{
+                  book.publicationDate + 'T00:00:00Z' | date: 'dd.MM.yyyy' : 'UTC'
+                }}</time>
+              </p>
+              <app-reading-list-add [isbn]="book.isbn" />
+            </app-book-item>
+          </li>
+        }
+      </ul>
+    </div>
+  }
+</section>

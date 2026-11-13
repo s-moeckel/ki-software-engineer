@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, signal, DestroyRef, inject, OnInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -8,6 +9,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { timeout, TimeoutError } from 'rxjs';
 import { Book } from './book';
+import { publicationDateValidator } from './publication-date';
 import { BookApiClient } from './book-api-client.service';
 import { CachedCoverPipe } from './cached-cover.pipe';
 import { ReadingListAddComponent } from '../reading-list/reading-list-add.component';
@@ -16,6 +18,7 @@ import { ReadingListAddComponent } from '../reading-list/reading-list-add.compon
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-book-details-dialog',
   imports: [
+    DatePipe,
     ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
@@ -64,6 +67,7 @@ export class BookDetailsDialogComponent implements OnInit {
       Validators.required,
       control => (Number.isInteger(control.value) && control.value > 0 ? null : { positiveInteger: true })
     ]),
+    publicationDate: new FormControl('', { nonNullable: true, validators: [publicationDateValidator] }),
     price: new FormControl('', { nonNullable: true }),
     cover: new FormControl('', { nonNullable: true }),
     abstract: new FormControl('', { nonNullable: true })
@@ -101,7 +105,7 @@ export class BookDetailsDialogComponent implements OnInit {
     const book = this.book();
     if (this.state() !== 'viewing' || !book) return;
     this.form.enable();
-    this.form.reset({ ...book, subtitle: book.subtitle ?? '' });
+    this.form.reset({ ...book, subtitle: book.subtitle ?? '', publicationDate: book.publicationDate ?? '' });
     this.saveError.set('');
     this.state.set('editing');
   }

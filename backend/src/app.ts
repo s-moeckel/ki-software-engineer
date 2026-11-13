@@ -5,7 +5,8 @@ import { isBook, type Book } from './book.js';
 import { CoverCache } from './cover-cache.js';
 import { readingListRouter } from './reading-list.js';
 
-const columns = 'id, isbn, title, subtitle, author, publisher, "numPages", price, cover, abstract, "userId"';
+const columns =
+  'id, isbn, title, subtitle, author, publisher, "numPages", price, cover, abstract, "userId", publicationDate';
 
 export function createApp(
   database: DatabaseSync,
@@ -131,7 +132,7 @@ export function createApp(
     }
     const inserted = database
       .prepare(
-        `INSERT INTO books (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO books (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(isbn) DO NOTHING RETURNING ${columns}`
       )
       .get(
@@ -145,7 +146,8 @@ export function createApp(
         book.price,
         book.cover,
         book.abstract,
-        book.userId
+        book.userId,
+        book.publicationDate ?? ''
       );
     if (!inserted) {
       res.status(409).json({ error: 'Diese ISBN ist bereits vorhanden.' });
@@ -155,6 +157,26 @@ export function createApp(
       .location(`/books/${encodeURIComponent(book.isbn)}`)
       .status(201)
       .json(inserted);
+  });
+
+  app.get('/books/new-releases', (_req, res) => {
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Berlin',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+    const start = new Date(`${today}T00:00:00Z`);
+    start.setUTCDate(start.getUTCDate() - 89);
+    res.json(
+      database
+        .prepare(
+          `SELECT ${columns} FROM books
+      WHERE publicationDate >= ? AND publicationDate <= ?
+      ORDER BY publicationDate DESC, isbn COLLATE BINARY`
+        )
+        .all(start.toISOString().slice(0, 10), today)
+    );
   });
 
   app.get('/books/:isbn', async (req, res) => {
@@ -190,7 +212,7 @@ export function createApp(
     const result = database
       .prepare(
         `UPDATE books SET title = ?, subtitle = ?, author = ?, publisher = ?,
-       "numPages" = ?, price = ?, cover = ?, abstract = ?
+       "numPages" = ?, price = ?, cover = ?, abstract = ?, publicationDate = ?
        WHERE isbn = ? RETURNING ${columns}`
       )
       .get(
@@ -202,6 +224,7 @@ export function createApp(
         book.price,
         book.cover,
         book.abstract,
+        book.publicationDate ?? original.publicationDate ?? '',
         isbn
       );
     res.json(result);

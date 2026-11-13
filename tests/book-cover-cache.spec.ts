@@ -47,6 +47,7 @@ for (const coverSource of [source, authorSource]) {
       return route.fulfill({ contentType: 'image/png', body: png });
     });
     await page.route(/^http:\/\/localhost:4730\/books(?:\/|\?|$)/, route => {
+      if (new URL(route.request().url()).pathname === '/books/new-releases') return route.fulfill({ json: [] });
       if (route.request().method() === 'PUT') {
         sentCover = route.request().postDataJSON().cover;
         return route.fulfill({ json: route.request().postDataJSON() });

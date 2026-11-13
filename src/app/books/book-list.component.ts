@@ -9,6 +9,7 @@ import { BookDialogService } from './book-dialog.service';
 import { Book } from './book';
 import { BookApiClient } from './book-api-client.service';
 import { BookItemComponent } from './book-item.component';
+import { BookNewReleasesComponent } from './book-new-releases.component';
 import { ReadingListAddComponent } from '../reading-list/reading-list-add.component';
 
 @Component({
@@ -17,6 +18,7 @@ import { ReadingListAddComponent } from '../reading-list/reading-list-add.compon
   imports: [
     ReactiveFormsModule,
     BookItemComponent,
+    BookNewReleasesComponent,
     MatDialogModule,
     MatSnackBarModule,
     MatButtonModule,
@@ -29,6 +31,8 @@ import { ReadingListAddComponent } from '../reading-list/reading-list-add.compon
       >
         Book Collection
       </h1>
+
+      <app-book-new-releases />
 
       <div class="mb-6">
         <button mat-flat-button type="button" (click)="openCreate()">Buch anlegen</button>

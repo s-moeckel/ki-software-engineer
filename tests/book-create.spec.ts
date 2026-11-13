@@ -100,7 +100,8 @@ for (const cover of ['', 'https://example.test/missing-cover.png']) {
           publisher: '',
           price: '',
           cover,
-          abstract: ''
+          abstract: '',
+          publicationDate: ''
         });
         created = { ...draft, id: 'new-id', userId: 1 };
         await pending;

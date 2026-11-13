@@ -18,6 +18,10 @@ export class BookApiClient {
     return this.http.get<Book[]>(this.apiUrl);
   }
 
+  getNewReleases(): Observable<Book[]> {
+    return this.http.get<Book[]>(`${this.apiUrl}/new-releases`);
+  }
+
   createBook(book: NewBook): Observable<Book> {
     return this.http.post<Book>(this.apiUrl, book);
   }

@@ -248,6 +248,26 @@ npx playwright test tests/reading-list.spec.ts tests/header-navigation.spec.ts -
 npm test --prefix backend
 ```
 
+### Frisch erschienen
+
+Oberhalb der Sammlung zeigt **Frisch erschienen** alle Bücher aus dem eigenen
+Bestand, deren Erscheinungsdatum auf heute oder einen der vorherigen 89 Kalendertage
+fällt. Maßgeblich ist `Europe/Berlin`; neueste Ausgaben stehen zuerst, bei gleichem
+Datum entscheidet die ISBN. Suche und Seitennavigation der Sammlung beeinflussen
+die Auswahl nicht. Die Buchreihe lässt sich per Touch, Pfeilschaltflächen oder
+mit Pfeiltasten sowie Home/End auf der fokussierten Reihe durchblättern.
+Details und Hinzufügen zur Leseliste funktionieren wie in der Sammlung.
+
+Das optionale Feld **Erscheinungsdatum** beim Anlegen und Bearbeiten bezieht sich
+auf die konkrete ISBN-Ausgabe. Ohne Datum oder mit zukünftigem Datum erscheint
+ein Buch nicht in der Sektion. Bestehende Bücher bekommen kein Datum automatisch;
+anfangs kann daher der Leerzustand erscheinen. Das eigene Backend stellt
+`GET /books/new-releases` bereit; die alternative `bookmonkey-api` unterstützt
+diese Erweiterung nicht. Ladefehler bieten eine eigene Wiederholungsaktion.
+
+Prüfung: `npx playwright test tests/book-new-releases.spec.ts --project=chromium`
+und `npm test --prefix backend`.
+
 ### Creating books
 
 The **Buch anlegen** button above the collection opens an empty, keyboard-accessible

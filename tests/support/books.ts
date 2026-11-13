@@ -12,6 +12,7 @@ export const book: Book = {
   publisher: 'Example Press',
   numPages: 250,
   price: '$29.90',
+  publicationDate: '',
   cover: '',
   abstract: 'Build accessible applications.'
 };
@@ -33,7 +34,10 @@ export function expectBookRequest(route: Route, methods = ['GET']): void {
   expect(route.request().url()).toBe(`${api}/${book.isbn}`);
 }
 
-export async function setup(page: Page): Promise<void> {
+export async function setup(page: Page, mockNewReleases = true): Promise<void> {
+  if (mockNewReleases) {
+    await page.route(`${api}/new-releases`, route => route.fulfill({ json: [] }));
+  }
   // Block external assets so the product tests do not depend on third parties.
   await page.route(/^https:\/\//, route => route.abort());
   await page.route(`${api}*`, route => {
