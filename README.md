@@ -206,6 +206,28 @@ starts with 1000 distinct titles and ISBNs; `GET /books?_limit=10` returns ten b
 
 Run `npx playwright test tests/book-random.spec.ts` for the mocked dice flow.
 
+### Creating books
+
+The **Buch anlegen** button above the collection opens an empty, keyboard-accessible
+dialog. ISBN, title, author and a positive whole page count are required; subtitle,
+publisher, price, cover URL and a multiline description are optional. ISBN is
+checked for presence and uniqueness, without an additional checksum rule. Missing
+or broken covers use the existing placeholder. Cover uploads and ISBN imports
+are outside this form.
+
+The local backend accepts `POST /books`, assigns identity and persists the book in
+SQLite. Successful creation closes the dialog, shows a toast and reloads the list
+with the current search. A new book appears only if it matches that search and
+falls within the current ten-result limit. Errors preserve the draft; an existing
+ISBN is reported explicitly. Saving blocks further submission and closing for up
+to 15 seconds. After a timeout or lost connection, the draft stays locked and can
+be retried with the same ISBN; the database prevents duplicates. Closing after an
+unconfirmed save refreshes the collection without a success toast.
+
+Run `npx playwright test tests/book-create.spec.ts --project=chromium --workers=1`
+and `npm test --prefix backend` to check creation, validation, conflicts, persistence,
+errors, retries, keyboard focus and mobile forms in both themes.
+
 ### Details and editing
 
 Book details use `GET /books/:isbn`; editing sends the full book to `PUT /books/:isbn`,

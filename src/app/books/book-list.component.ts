@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, inject, input, signal, 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatDialogModule } from '@angular/material/dialog';
+import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { Subscription } from 'rxjs';
 import { BookDialogService } from './book-dialog.service';
@@ -12,7 +13,7 @@ import { BookItemComponent } from './book-item.component';
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-book-list',
-  imports: [ReactiveFormsModule, BookItemComponent, MatDialogModule, MatSnackBarModule],
+  imports: [ReactiveFormsModule, BookItemComponent, MatDialogModule, MatSnackBarModule, MatButtonModule],
   template: `
     <div class="container mx-auto px-4 py-12 max-w-7xl">
       <h1
@@ -20,6 +21,10 @@ import { BookItemComponent } from './book-item.component';
       >
         Book Collection
       </h1>
+
+      <div class="mb-6">
+        <button mat-flat-button type="button" (click)="openCreate()">Buch anlegen</button>
+      </div>
 
       <div class="mb-6">
         <div class="flex items-center border-b-2 border-gray-300 dark:border-gray-600 py-2">
@@ -158,6 +163,10 @@ export class BookListComponent implements OnInit {
 
   openDetails(book: Book): void {
     this.dialogs.openDetails(book.isbn);
+  }
+
+  openCreate(): void {
+    this.dialogs.openCreate();
   }
 
   clearSearch(): void {

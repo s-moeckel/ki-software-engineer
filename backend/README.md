@@ -176,15 +176,16 @@ eigene Migrationen.
 
 ## API-Vertrag
 
-| Anfrage                        | Verhalten                                                        |
-| ------------------------------ | ---------------------------------------------------------------- |
-| GET /books                     | Vollständige Sammlung als JSON-Array, stabil nach id sortiert    |
-| GET /books?\_limit=10          | Höchstens zehn Treffer; \_limit=0 liefert ein leeres Array       |
-| GET /books?q=asimov&\_limit=10 | Suche vor Begrenzung, ohne Beachtung der Groß-/Kleinschreibung   |
-| GET /books/:isbn               | Vollständiges Buch anhand der URL-kodierten ISBN                 |
-| PUT /books/:isbn               | Vollständiges Buch speichern und gespeicherten Stand zurückgeben |
-| GET /health                    | HTTP 200 bei verfügbarer Datenbank, sonst 503                    |
-| GET /covers?url=…              | Open-Library-Cover aus SQLite oder begrenzter externer Erstabruf |
+| Anfrage                        | Verhalten                                                         |
+| ------------------------------ | ----------------------------------------------------------------- |
+| GET /books                     | Vollständige Sammlung als JSON-Array, stabil nach id sortiert     |
+| GET /books?\_limit=10          | Höchstens zehn Treffer; \_limit=0 liefert ein leeres Array        |
+| GET /books?q=asimov&\_limit=10 | Suche vor Begrenzung, ohne Beachtung der Groß-/Kleinschreibung    |
+| GET /books/:isbn               | Vollständiges Buch anhand der URL-kodierten ISBN                  |
+| POST /books                    | Buch anlegen; HTTP 201 mit vollständigem Buch und Location-Header |
+| PUT /books/:isbn               | Vollständiges Buch speichern und gespeicherten Stand zurückgeben  |
+| GET /health                    | HTTP 200 bei verfügbarer Datenbank, sonst 503                     |
+| GET /covers?url=…              | Open-Library-Cover aus SQLite oder begrenzter externer Erstabruf  |
 
 q ist eine zusammenhängende Teilzeichenfolge in Titel, Untertitel, Autor, Verlag,
 Beschreibung oder ISBN. Äußere Leerzeichen werden entfernt; Prozentzeichen und
@@ -208,6 +209,19 @@ interface Book {
   userId: number;
 }
 ```
+
+`POST /books` erwartet ISBN, Titel, Autor und numPages. Untertitel, Verlag, Preis,
+Cover-URL und Beschreibung sind optional und werden bei fehlender Angabe als leere
+Strings gespeichert. Die JSON-Feldnamen entsprechen `Book`. Der Server erzeugt
+`id` als UUID und setzt `userId` für den lokalen Betrieb ohne Anmeldung auf `1`;
+mitgesendete Identitätsfelder werden ignoriert. Äußere Leerzeichen der ISBN werden
+entfernt. Eindeutigkeit prüft SQLite atomar anhand dieser ISBN, auch bei parallelen
+Anfragen oder einem erneuten Versuch nach Verbindungsabbruch. Weitere Normalisierung
+oder Prüfziffernvalidierung findet nicht statt. Eine vorhandene ISBN liefert HTTP
+409 mit ausdrücklicher Fehlermeldung; das vorhandene Buch bleibt unverändert.
+HTTP 201 liefert das gespeicherte vollständige Buch und `Location: /books/<ISBN>`.
+Neue Bücher sind über Liste, Suche und Details verfügbar und bleiben nach Neustarts
+erhalten. Die Listenbegrenzung und Sortierung gelten auch für neue Einträge.
 
 Updates erhalten id, ISBN und userId. Titel und Autor dürfen nicht leer sein;
 numPages muss eine positive ganze Zahl im 32-Bit-Bereich sein. price bleibt ein

@@ -1,4 +1,5 @@
 import express, { type ErrorRequestHandler } from 'express';
+import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { isBook, type Book } from './book.js';
 import { CoverCache } from './cover-cache.js';
@@ -18,7 +19,7 @@ export function createApp(
     const origin = req.get('Origin');
     if (origin && allowedOrigins.includes(origin)) {
       res.set('Access-Control-Allow-Origin', origin);
-      res.set('Access-Control-Allow-Methods', 'GET, PUT, OPTIONS');
+      res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
       res.set('Access-Control-Allow-Headers', 'Content-Type');
     }
     res.set('Cache-Control', 'no-store');
@@ -77,6 +78,59 @@ export function createApp(
       )
       .all(typeof q === 'string' ? q.trim() : '', limit === undefined ? -1 : Number(limit));
     res.json(result);
+  });
+
+  app.post('/books', (req, res) => {
+    const draft: unknown = req.body;
+    if (typeof draft !== 'object' || draft === null || Array.isArray(draft)) {
+      res.status(400).json({ error: 'Buchangaben erforderlich.' });
+      return;
+    }
+    const fields = draft as Record<string, unknown>;
+    const book = {
+      subtitle: '',
+      publisher: '',
+      price: '',
+      cover: '',
+      abstract: '',
+      ...fields,
+      id: randomUUID(),
+      userId: 1,
+      isbn: typeof fields['isbn'] === 'string' ? fields['isbn'].trim() : fields['isbn']
+    };
+    if (!isBook(book)) {
+      res.status(400).json({
+        error:
+          'ISBN, Titel, Autor und eine positive ganze Seitenzahl sind erforderlich; optionale Angaben müssen Texte sein.'
+      });
+      return;
+    }
+    const inserted = database
+      .prepare(
+        `INSERT INTO books (${columns}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(isbn) DO NOTHING RETURNING ${columns}`
+      )
+      .get(
+        book.id,
+        book.isbn,
+        book.title,
+        book.subtitle ?? '',
+        book.author,
+        book.publisher,
+        book.numPages,
+        book.price,
+        book.cover,
+        book.abstract,
+        book.userId
+      );
+    if (!inserted) {
+      res.status(409).json({ error: 'Diese ISBN ist bereits vorhanden.' });
+      return;
+    }
+    res
+      .location(`/books/${encodeURIComponent(book.isbn)}`)
+      .status(201)
+      .json(inserted);
   });
 
   app.get('/books/:isbn', async (req, res) => {

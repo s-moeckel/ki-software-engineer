@@ -11,3 +11,5 @@ export interface Book {
   abstract: string;
   userId: number;
 }
+
+export type NewBook = Omit<Book, 'id' | 'userId'>;

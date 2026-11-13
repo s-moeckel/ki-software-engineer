@@ -1,0 +1,69 @@
+<h2 mat-dialog-title>Buch anlegen</h2>
+<form [formGroup]="form" (ngSubmit)="save()">
+  <mat-dialog-content [attr.aria-busy]="state() === 'saving'">
+    @if (saveError()) {
+      <p role="alert" class="mb-4 text-red-700 dark:text-red-300">{{ saveError() }}</p>
+    }
+    @if (state() === 'saving') {
+      <p role="status" class="mb-4">Buch wird gespeichert…</p>
+    }
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+      <mat-form-field>
+        <mat-label>ISBN</mat-label>
+        <input matInput formControlName="isbn" required />
+        @if (form.controls.isbn.hasError('duplicate')) {
+          <mat-error>Diese ISBN ist bereits vorhanden.</mat-error>
+        } @else {
+          <mat-error>Bitte geben Sie eine ISBN ein.</mat-error>
+        }
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Titel</mat-label>
+        <input matInput formControlName="title" required />
+        <mat-error>Bitte geben Sie einen Titel ein.</mat-error>
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Autor</mat-label>
+        <input matInput formControlName="author" required />
+        <mat-error>Bitte geben Sie einen Autor ein.</mat-error>
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Seitenzahl</mat-label>
+        <input matInput type="number" formControlName="numPages" min="1" max="2147483647" step="1" required />
+        <mat-error>Bitte geben Sie eine positive ganze Zahl bis 2147483647 ein.</mat-error>
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Untertitel</mat-label>
+        <input matInput formControlName="subtitle" />
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Verlag</mat-label>
+        <input matInput formControlName="publisher" />
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Preis</mat-label>
+        <input matInput formControlName="price" />
+      </mat-form-field>
+      <mat-form-field>
+        <mat-label>Cover-URL</mat-label>
+        <input matInput formControlName="cover" />
+      </mat-form-field>
+      <mat-form-field class="sm:col-span-2">
+        <mat-label>Beschreibung</mat-label>
+        <textarea matInput formControlName="abstract" rows="4"></textarea>
+      </mat-form-field>
+    </div>
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" mat-dialog-close [disabled]="state() === 'saving'">Abbrechen</button>
+    <button mat-flat-button type="submit" [disabled]="state() === 'saving'">
+      {{
+        state() === 'saving'
+          ? 'Wird gespeichert…'
+          : state() === 'uncertain'
+            ? 'Mit derselben ISBN erneut versuchen'
+            : 'Buch anlegen'
+      }}
+    </button>
+  </mat-dialog-actions>
+</form>
