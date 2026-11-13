@@ -5,7 +5,7 @@ description: Erstellt in der TDD-Red-Phase aus einer User Story mit Given/When/T
 
 # TDD: Red-Phase
 
-Übernimm die geklärten Anforderungen und erstelle konkrete Testgerüste mit Setup, Aktion und fachlichen Assertions. Schreibe die Tests direkt in das Repository. Implementiere das Feature nicht und wechsle nicht selbstständig in die Green- oder Refactor-Phase.
+Übernimm die geklärten Anforderungen und erstelle konkrete Testgerüste mit Setup, Aktion und fachlichen Assertions. Schreibe die Tests direkt in das Repository. Implementiere innerhalb der Red-Phase keinen Produktionscode. Bei einem eigenständigen Red-Auftrag endet die Arbeit mit der Übergabe; innerhalb des durch [tdd-green](../tdd-green/SKILL.md) gesteuerten, freigegebenen Implementierungsauftrags setzt der übergeordnete Ablauf anschließend selbstständig mit Green und Refactor fort.
 
 ## Anforderungen übernehmen
 
@@ -40,4 +40,4 @@ Wenn eine geplante öffentliche Schnittstelle noch fehlt, kennzeichne sie als Te
 - Führe die neu erstellten Tests gezielt mit dem vorhandenen Runner aus und beachte vorgeschriebene Repository-Checks. Formatiere nur geänderte Dateien. Vermeide externe Beispieltests oder eine echte API als Voraussetzung für isolierte Feature-Tests.
 - Prüfe für jeden Test die tatsächliche Fehlerursache. Unterscheide **fachlich rot**, **bereits grün**, **blockiert durch Testumgebung oder fehlende Schnittstelle** und **nicht ausgeführt**. Ein fehlender Browser, ein Setup-Fehler oder ein nicht gestarteter Server belegen kein fehlendes Feature. Behebe Fehler im eigenen Testcode innerhalb des Testumfangs und wiederhole den betroffenen Lauf.
 - Ist ein Test schon grün, prüfe seine Aussagekraft und berichte gegebenenfalls, dass das Kriterium bereits erfüllt ist. Verändere weder Anforderungen noch Anwendung, um einen Fehlschlag zu erzwingen. Stelle nicht die gesamte Phase als nachgewiesen rot dar, wenn einzelne Szenarien blockiert oder ungeprüft sind.
-- Beende die Arbeit nach der Red-Prüfung. Übergib die Szenario-Zuordnung mit Dateien und Testtiteln, tatsächlich ausgeführte Befehle, Ergebnis und konkrete Fehlerursache je Fall sowie offene Fragen und Infrastrukturhindernisse. Nenne die noch zu erfüllenden fachlichen Erwartungen als Ausgangspunkt für Green, ohne produktiven Code zu schreiben.
+- Beende bei einem eigenständigen Red-Auftrag die Arbeit nach der Red-Prüfung; im freigegebenen Gesamtzyklus übergib intern an Green. Übergib die Szenario-Zuordnung mit Dateien und Testtiteln, tatsächlich ausgeführte Befehle, Ergebnis und konkrete Fehlerursache je Fall sowie offene Fragen und Infrastrukturhindernisse. Nenne die noch zu erfüllenden fachlichen Erwartungen als Ausgangspunkt für Green, ohne innerhalb der Red-Phase produktiven Code zu schreiben.
