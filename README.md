@@ -119,13 +119,18 @@ to check layout, mobile actions, mouse movement, stopping and book zoom.
 
 ### BookMonkey Universe
 
-The planet icon in the header opens `/universe`, a lazy-loaded Three.js galaxy of
+The Universe link in the header opens `/universe`, a lazy-loaded Three.js galaxy of
 the full collection from the existing `getAllBooks()` endpoint. Start the frontend
 with `npm start` and the SQLite backend with `npm run backend`. No extra
 server, API key, example books, or graphics assets are needed.
 
-In Universe, the same header control shows a list icon and returns to the normal
-book collection at `/`. Its tooltip and accessible label name the destination.
+The header links directly to Library (`/library`), Universe (`/universe`) and
+Listenansicht (`/`), followed by the dice action and theme selection. BookMonkey
+links to `/`. The current view is highlighted and marked with `aria-current="page"`.
+Links wrap on narrow screens and remain visible and keyboard-accessible.
+Run `npx playwright test tests/header-navigation.spec.ts --project=chromium --workers=1`
+to check direct entry, navigation between all views, Home, history, global actions
+and the header at desktop and 320px widths in both themes.
 
 `src/app/book-universe/` contains the standalone Angular screen (local Signals,
 search, panels and Discovery controls), `universe-data.ts` (pure classification,

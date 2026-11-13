@@ -1,33 +1,65 @@
 <header class="bg-white dark:bg-gray-900 shadow">
   <div class="container mx-auto px-4 py-6 flex flex-wrap items-center justify-between gap-4">
-    <h1 class="text-3xl font-bold text-blue-600 dark:text-blue-400">BookMonkey</h1>
-    <div class="flex items-center gap-3">
-      <a
-        routerLink="/library"
-        [class.text-blue-600]="libraryActive()"
-        aria-label="Virtual Library öffnen"
-        title="Virtual Library öffnen"
-        class="inline-flex min-h-11 items-center gap-2 rounded-full border border-gray-300 px-4 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
-      >
-        <span aria-hidden="true">▤</span>
-        <span class="hidden sm:inline">Virtual Library</span>
-      </a>
-      <a
-        [routerLink]="universeActive() ? '/' : '/universe'"
-        [class.text-blue-600]="universeActive()"
-        [attr.aria-label]="universeActive() ? 'Büchersammlung öffnen' : 'BookMonkey Universe öffnen'"
-        [title]="universeActive() ? 'Büchersammlung öffnen' : 'BookMonkey Universe öffnen'"
-        class="inline-flex size-11 items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
-      >
-        <svg aria-hidden="true" class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-          @if (universeActive()) {
-            <path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1" />
-          } @else {
+    <h1 class="text-3xl font-bold text-blue-600 dark:text-blue-400"><a routerLink="/">BookMonkey</a></h1>
+    <div class="ml-auto flex max-w-full flex-wrap items-center justify-end gap-3">
+      <nav aria-label="Hauptnavigation" class="flex max-w-full flex-wrap justify-end gap-2">
+        <a
+          routerLink="/library"
+          routerLinkActive="active-view"
+          [routerLinkActiveOptions]="activeLinkOptions"
+          ariaCurrentWhenActive="page"
+          aria-label="Virtual Library öffnen"
+          title="Virtual Library öffnen"
+          class="view-link inline-flex min-h-11 items-center gap-2 rounded-full border border-gray-300 px-3 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
+          <span aria-hidden="true">▤</span>
+          <span>Library</span>
+        </a>
+        <a
+          routerLink="/universe"
+          routerLinkActive="active-view"
+          [routerLinkActiveOptions]="activeLinkOptions"
+          ariaCurrentWhenActive="page"
+          aria-label="BookMonkey Universe öffnen"
+          title="BookMonkey Universe öffnen"
+          class="view-link inline-flex min-h-11 items-center gap-2 rounded-full border border-gray-300 px-3 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
+          <svg
+            aria-hidden="true"
+            class="size-6"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+          >
             <circle cx="12" cy="12" r="6" />
             <ellipse cx="12" cy="12" rx="11" ry="3.5" transform="rotate(-30 12 12)" />
-          }
-        </svg>
-      </a>
+          </svg>
+          <span>Universe</span>
+        </a>
+        <a
+          routerLink="/"
+          routerLinkActive="active-view"
+          [routerLinkActiveOptions]="activeLinkOptions"
+          ariaCurrentWhenActive="page"
+          aria-label="Listenansicht öffnen"
+          title="Listenansicht öffnen"
+          class="view-link inline-flex min-h-11 items-center gap-2 rounded-full border border-gray-300 px-3 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+        >
+          <svg
+            aria-hidden="true"
+            class="size-6"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+          >
+            <path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1" />
+          </svg>
+          <span>Listenansicht</span>
+        </a>
+      </nav>
+      <app-book-random-button />
       <button
         type="button"
         class="inline-flex size-11 items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -62,7 +94,6 @@
           }
         </svg>
       </button>
-      <app-book-random-button />
     </div>
   </div>
 </header>

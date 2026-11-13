@@ -87,12 +87,12 @@ test('uses loaded covers as planet textures and keeps the fallback for failed co
 });
 
 for (const mobile of [false, true]) {
-  test(`header switches between Universe and collection${mobile ? ' on mobile' : ''}`, async ({ page }) => {
+  test(`header links to Universe and collection${mobile ? ' on mobile' : ''}`, async ({ page }) => {
     await setupUniverse(page, { mobile });
     const header = page.getByRole('banner');
-    const collectionLink = header.getByRole('link', { name: 'Büchersammlung öffnen', exact: true });
+    const collectionLink = header.getByRole('link', { name: 'Listenansicht öffnen', exact: true });
     await expect(collectionLink).toHaveAttribute('href', '/');
-    await expect(collectionLink).toHaveAttribute('title', 'Büchersammlung öffnen');
+    await expect(collectionLink).toHaveAttribute('title', 'Listenansicht öffnen');
     await collectionLink.click();
     await expect(page).toHaveURL('http://localhost:4200/');
     await expect(page.getByRole('heading', { name: 'Book Collection', exact: true })).toBeVisible();
@@ -195,7 +195,7 @@ test('Discovery flies with the Enterprise and removes it on pause and navigation
   await expect(ship).toBeVisible();
   await page.getByRole('button', { name: 'Beenden', exact: true }).dispatchEvent('click');
   await expect(ship).toBeHidden();
-  await page.getByRole('link', { name: 'Büchersammlung öffnen', exact: true }).dispatchEvent('click');
+  await page.getByRole('link', { name: 'Listenansicht öffnen', exact: true }).dispatchEvent('click');
   await expect(ship).toHaveCount(0);
 });
 

@@ -121,7 +121,7 @@ test('navigation cancels a pending search debounce and returning creates a fresh
   await page.clock.runFor(1000);
   expect(searches).toEqual([]);
   await page.clock.resume();
-  await page.getByRole('link', { name: 'Büchersammlung öffnen', exact: true }).click();
+  await page.getByRole('link', { name: 'Listenansicht öffnen', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Search for books' })).toHaveValue('');
   await expect.poll(() => searches).toEqual([null]);
 });

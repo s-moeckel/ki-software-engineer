@@ -1,11 +1,11 @@
 ---
 name: tdd-green
-description: Implementiert in der TDD-Green-Phase den minimal notwendigen Produktionscode für vorbereitete, fehlschlagende Tests. Nach der Red-Phase einsetzen, wenn der Entwickler die Tests erstellt hat und die getestete Funktionalität implementiert werden soll. Bewahrt die Tests außer bei nachgewiesenen Testfehlern und weist Green durch erfolgreiche Testläufe nach.
+description: Plant in der TDD-Green-Phase die Umsetzung vorbereiteter, fehlschlagender Tests und legt den Plan dem Nutzer zur Entscheidung vor. Implementiert erst nach ausdrücklicher Planfreigabe den minimal notwendigen Produktionscode, bewahrt die Tests außer bei nachgewiesenen Testfehlern und weist Green durch erfolgreiche Testläufe nach. Nach der Red-Phase einsetzen, wenn die getestete Funktionalität implementiert werden soll.
 ---
 
 # TDD: Green-Phase
 
-Übernimm die vorbereiteten Tests, analysiere ihre Erwartungen und implementiere das fehlende Verhalten direkt im Repository. Vervollständige den Red-Green-Zyklus mit dem kleinsten fachlich korrekten Produktionscode. Beende die Phase nach dem nachgewiesenen Green; starte keine eigenständige Refactor-Phase.
+Übernimm die vorbereiteten Tests, analysiere ihre Erwartungen und plane die Umsetzung. Lege den konkreten Plan dem Nutzer zur Entscheidung vor und beginne die Implementierung erst nach seiner ausdrücklichen Freigabe dieses Plans. Vervollständige anschließend den Red-Green-Zyklus mit dem kleinsten fachlich korrekten Produktionscode. Beende die Phase nach dem nachgewiesenen Green; starte keine eigenständige Refactor-Phase.
 
 ## Tests und Erwartungen übernehmen
 
@@ -21,7 +21,15 @@ Führe die betroffenen Tests zunächst gezielt mit dem vorhandenen Runner aus. U
 
 Bereits grüne Tests benötigen keine zusätzliche Implementierung. Fehlende produktive Imports, Typen oder öffentliche Schnittstellen aus dem Testentwurf gehören zur Implementierung, sofern sie den vereinbarten Anforderungen entsprechen. Behandle sie nicht pauschal als fehlerhafte Tests.
 
-## Minimalen Produktionscode implementieren
+## Umsetzungsplan vorlegen und Freigabe abwarten
+
+- Erstelle auf Grundlage der Analyse und des Red-Nachweises einen konkreten, prüfbaren Plan: zu erfüllende Szenarien, betroffene Dateien und ihre geplanten Änderungen, wesentliche technische Entscheidungen sowie vorgesehene Tests und Build-Prüfungen. Benenne offene Entscheidungen und relevante Risiken; gib bei Alternativen eine begründete Empfehlung.
+- Lege den Plan im Gespräch vor und bitte ausdrücklich um die Entscheidung des Nutzers: freigeben oder ändern. Beende diesen Schritt mit dem Hinweis, dass dieser Skill vor der Implementierung eine Planfreigabe verlangt, und verlinke diese `SKILL.md`.
+- Warte auf die ausdrückliche Freigabe des vorgelegten Plans. Ein allgemeiner Implementierungsauftrag, der Skill-Aufruf oder ausbleibender Widerspruch gelten nicht als Planfreigabe. Bis dahin sind lesende Analyse und Testläufe erlaubt; ändere keinen Produktionscode, keine Tests, Fixtures, Abhängigkeiten oder Konfiguration und beginne keine Teilimplementierung.
+- Arbeite Änderungswünsche in den Plan ein und lege den überarbeiteten Plan erneut zur Entscheidung vor. Wurde derselbe konkrete Plan im Gespräch bereits ausdrücklich freigegeben, nutze diese Freigabe ohne erneute Nachfrage.
+- Decken neue Erkenntnisse notwendige wesentliche Abweichungen vom freigegebenen Umfang oder Ansatz auf, lege die Anpassung vor der davon betroffenen Implementierung erneut zur Freigabe vor. Routineentscheidungen innerhalb des freigegebenen Plans benötigen keine erneute Freigabe.
+
+## Minimalen Produktionscode nach Planfreigabe implementieren
 
 1. Wähle eine kleine zusammenhängende Gruppe fehlschlagender Szenarien und implementiere das dafür notwendige Verhalten in der zuständigen Produktionskomponente oder im zuständigen Service.
 2. Nutze bestehende Architektur, Schnittstellen und Bibliotheken. Halte die Änderung lokal; ergänze keine spekulativen Funktionen, zusätzlichen Schichten oder beiläufigen Abhängigkeitsänderungen.

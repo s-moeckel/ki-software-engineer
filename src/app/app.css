@@ -1,0 +1,22 @@
+.view-link.active-view {
+  color: #1e40af;
+  background-color: #dbeafe;
+  border-color: currentColor;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+:host-context(.dark) .view-link.active-view {
+  color: #bfdbfe;
+  background-color: #1e3a8a;
+}
+
+header a:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+
+:host-context(.dark) header a:focus-visible {
+  outline-color: #93c5fd;
+}
