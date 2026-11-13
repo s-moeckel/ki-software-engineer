@@ -48,3 +48,6 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 debug.log
+
+# Local implementation plans
+/.plans/
