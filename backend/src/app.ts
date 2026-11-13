@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { isBook, type Book } from './book.js';
 import { CoverCache } from './cover-cache.js';
+import { readingListRouter } from './reading-list.js';
 
 const columns = 'id, isbn, title, subtitle, author, publisher, "numPages", price, cover, abstract, "userId"';
 
@@ -19,7 +20,7 @@ export function createApp(
     const origin = req.get('Origin');
     if (origin && allowedOrigins.includes(origin)) {
       res.set('Access-Control-Allow-Origin', origin);
-      res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+      res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
       res.set('Access-Control-Allow-Headers', 'Content-Type');
       res.set('Access-Control-Expose-Headers', 'X-Total-Count');
     }
@@ -31,6 +32,7 @@ export function createApp(
     next();
   });
   app.use(express.json({ limit: '128kb' }));
+  app.use('/reading-list', readingListRouter(database));
 
   app.get('/covers', async (req, res) => {
     const source = req.query['url'];

@@ -11,3 +11,9 @@ CREATE TABLE IF NOT EXISTS books (
   abstract text NOT NULL,
   "userId" integer NOT NULL
 ) STRICT;
+
+CREATE TABLE IF NOT EXISTS reading_list (
+  isbn text NOT NULL PRIMARY KEY REFERENCES books(isbn),
+  status text NOT NULL CHECK (status IN ('want-to-read', 'reading', 'read')),
+  position integer NOT NULL CHECK (position >= 0)
+) STRICT;

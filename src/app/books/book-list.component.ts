@@ -9,11 +9,19 @@ import { BookDialogService } from './book-dialog.service';
 import { Book } from './book';
 import { BookApiClient } from './book-api-client.service';
 import { BookItemComponent } from './book-item.component';
+import { ReadingListAddComponent } from '../reading-list/reading-list-add.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-book-list',
-  imports: [ReactiveFormsModule, BookItemComponent, MatDialogModule, MatSnackBarModule, MatButtonModule],
+  imports: [
+    ReactiveFormsModule,
+    BookItemComponent,
+    MatDialogModule,
+    MatSnackBarModule,
+    MatButtonModule,
+    ReadingListAddComponent
+  ],
   template: `
     <div class="container mx-auto px-4 py-12 max-w-7xl">
       <h1
@@ -89,7 +97,9 @@ import { BookItemComponent } from './book-item.component';
       @if (!loading() && !loadError()) {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
           @for (book of books(); track book.id) {
-            <app-book-item [book]="book" (details)="openDetails($event)"></app-book-item>
+            <app-book-item [book]="book" (details)="openDetails($event)">
+              <app-reading-list-add [isbn]="book.isbn" />
+            </app-book-item>
           }
           @if (books().length === 0) {
             <div

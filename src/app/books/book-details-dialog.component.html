@@ -50,6 +50,7 @@
         </div>
       </dl>
       <div class="sm:col-span-2">
+        <app-reading-list-add [isbn]="currentBook.isbn" />
         <h3 class="font-semibold">Description</h3>
         <p class="whitespace-pre-wrap break-words">{{ currentBook.abstract || 'No description available.' }}</p>
       </div>

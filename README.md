@@ -22,7 +22,7 @@ The application stays on Angular 20 and uses standalone components with OnPush
 change detection throughout. Local UI state uses Signals, derived values use
 computed Signals, and component bindings use signal inputs and function outputs.
 Templates use native control flow; the search and book editor use typed Reactive
-Forms. Services use inject(), scene hosts use signal queries, and all three
+Forms. Services use inject(), scene hosts use signal queries, and all four
 screens load through lazy routes. Three.js animation loops remain outside Angular;
 scene disposal and request cancellation remain tied to component lifecycles.
 
@@ -30,7 +30,7 @@ The application regression suite uses Playwright with a mocked API. Run all
 product checks in Chromium (excluding the external Playwright example):
 
 ```sh
-npx playwright test tests/book-details.spec.ts tests/book-search.spec.ts tests/book-random.spec.ts tests/book-cover-cache.spec.ts tests/theme.spec.ts tests/library.spec.ts tests/library-review.spec.ts tests/library-data.spec.ts tests/book-universe.spec.ts tests/universe-data.spec.ts tests/isbn.spec.ts --project=chromium --workers=1
+npx playwright test tests/book-details.spec.ts tests/book-search.spec.ts tests/book-random.spec.ts tests/book-cover-cache.spec.ts tests/theme.spec.ts tests/library.spec.ts tests/library-review.spec.ts tests/library-data.spec.ts tests/book-universe.spec.ts tests/universe-data.spec.ts tests/isbn.spec.ts tests/reading-list.spec.ts tests/header-navigation.spec.ts --project=chromium --workers=1
 ```
 
 ## Local Development
@@ -124,8 +124,8 @@ the full collection from the existing `getAllBooks()` endpoint. Start the fronte
 with `npm start` and the SQLite backend with `npm run backend`. No extra
 server, API key, example books, or graphics assets are needed.
 
-The header links directly to Library (`/library`), Universe (`/universe`) and
-Listenansicht (`/`), followed by the dice action and theme selection. BookMonkey
+The header links directly to Leseliste (`/reading-list`), Library (`/library`),
+Universe (`/universe`) and Listenansicht (`/`), followed by the dice action and theme selection. BookMonkey
 links to `/`. The current view is highlighted and marked with `aria-current="page"`.
 Links wrap on narrow screens and remain visible and keyboard-accessible.
 Run `npx playwright test tests/header-navigation.spec.ts --project=chromium --workers=1`
@@ -210,6 +210,37 @@ requests and animation timers. Collection requests time out after 15 seconds.
 starts with 1000 distinct titles and ISBNs; `GET /books?_limit=10` returns ten books.
 
 Run `npx playwright test tests/book-random.spec.ts` for the mocked dice flow.
+
+### Leseliste
+
+Der Header-Link **Leseliste** öffnet `/reading-list`. Das Board beginnt leer mit
+den Spalten „möchte ich lesen“, „lese ich gerade“ und „gelesen“. **Zur Leseliste
+hinzufügen** an einer Buchkarte oder im Detaildialog nimmt ein Buch am Ende der
+ersten Spalte auf. Wiederholtes Hinzufügen erzeugt kein Duplikat und erhält den
+bisherigen Status und die Reihenfolge.
+
+Karten lassen sich am Griff per Drag-and-Drop verschieben und umsortieren.
+Alternativ stehen die beschriftete Lesestatus-Auswahl sowie **Nach oben** und
+**Nach unten** für Tastaturbedienung bereit. Auf schmalen Bildschirmen stehen die
+Spalten untereinander. **Aus Leseliste entfernen** entfernt nur die Zuordnung,
+das Buch bleibt im Bestand. **Details** öffnet den vorhandenen Buchdialog.
+
+Das eigene Backend speichert Zugehörigkeit, Status und Reihenfolge in derselben
+SQLite-Datei wie die Bücher. Neuladen und Backendneustarts erhalten das Board;
+Benutzerkonten und zusätzliche Dienste sind nicht erforderlich. Die alternative
+`bookmonkey-api` bietet diese Erweiterung nicht.
+
+Während des Speicherns sind weitere Boardaktionen gesperrt. Bestätigte Fehler
+nehmen die sichtbare Änderung zurück und bieten **Erneut versuchen**. Nach einem
+Timeout (15 Sekunden) oder Verbindungsabbruch wird der Serverstand abgeglichen,
+weil die Änderung bereits gespeichert sein könnte. Schlägt auch der Abgleich
+fehl, muss **Erneut laden** erfolgreich sein, bevor weitere Änderungen möglich
+sind. Ladefehler erscheinen sichtbar mit Wiederholungsmöglichkeit.
+
+```sh
+npx playwright test tests/reading-list.spec.ts tests/header-navigation.spec.ts --project=chromium --workers=1
+npm test --prefix backend
+```
 
 ### Creating books
 

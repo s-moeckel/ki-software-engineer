@@ -10,11 +10,20 @@ import { timeout, TimeoutError } from 'rxjs';
 import { Book } from './book';
 import { BookApiClient } from './book-api-client.service';
 import { CachedCoverPipe } from './cached-cover.pipe';
+import { ReadingListAddComponent } from '../reading-list/reading-list-add.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-book-details-dialog',
-  imports: [ReactiveFormsModule, MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule, CachedCoverPipe],
+  imports: [
+    ReactiveFormsModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    CachedCoverPipe,
+    ReadingListAddComponent
+  ],
   templateUrl: './book-details-dialog.component.html',
   styles: `
     :host {

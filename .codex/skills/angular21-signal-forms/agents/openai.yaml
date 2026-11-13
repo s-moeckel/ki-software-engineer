@@ -1,0 +1,6 @@
+interface:
+  display_name: "Angular 21 und Signal Forms"
+  short_description: "BookMonkey auf Angular 21 und Signal Forms migrieren"
+  default_prompt: "Nutze $angular21-signal-forms, um BookMonkey zuerst auf die neueste stabile Angular-21.x-Version zu aktualisieren und anschließend seine Formulare auf Signal Forms umzustellen."
+policy:
+  allow_implicit_invocation: true

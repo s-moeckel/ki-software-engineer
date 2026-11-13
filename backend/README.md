@@ -77,6 +77,39 @@ Node 24 kann dafür einen ExperimentalWarning ausgeben. Die synchronen Datenbank
 passen zum kleinen lokalen Workshopbestand; ein gemeinsam betriebenes Backend mit
 vielen gleichzeitigen Schreibern ist nicht Ziel dieser Variante.
 
+## Leselisten-API
+
+Die zusätzliche Tabelle `reading_list` enthält pro ISBN höchstens einen Eintrag,
+mit Status `want-to-read`, `reading` oder `read` und einer ab null gezählten
+Position innerhalb der Spalte. Die Tabelle startet leer. Die Initialisierung
+ergänzt sie auch in vorhandenen Datenbanken, ohne Bücher oder bestehende
+Leselisteneinträge zurückzusetzen. Buchreferenzen werden durch einen Fremdschlüssel
+abgesichert. Eine Sicherung der SQLite-Datei umfasst auch die Leseliste.
+
+| Anfrage                                                                | Verhalten                                                                                                                                        |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /reading-list`                                                    | Liefert alle Einträge in Spalten- und Positionsreihenfolge.                                                                                      |
+| `POST /reading-list` mit `{ "isbn": "…" }`                             | Fügt ein vorhandenes Buch am Ende von `want-to-read` hinzu (201). Bereits enthaltene Bücher bleiben unverändert (200).                           |
+| `PUT /reading-list/:isbn` mit `{ "status": "reading", "position": 0 }` | Verschiebt den Eintrag an die angegebene Zielposition; beim Umsortieren wird die Karte vor dem Einfügen aus der bisherigen Reihenfolge entfernt. |
+| `DELETE /reading-list/:isbn`                                           | Entfernt ausschließlich den Leselisteneintrag; das Buch bleibt erhalten.                                                                         |
+
+Jeder Eintrag hat die Form `{ isbn, status, position, book }`. `book` enthält den
+aktuellen vollständigen Buchdatensatz, keine separat gespeicherte Kopie. Auch
+erfolgreiche Mutationen liefern das vollständige Board. ISBNs im Pfad müssen
+URL-kodiert werden. Unbekannte Bücher oder Listeneinträge liefern 404, ungültige
+Eingaben oder Zielpositionen außerhalb der Spalte 400. Die Zielposition darf zum
+Anhängen der Anzahl der übrigen Karten in der Zielspalte entsprechen.
+
+Änderungen laufen in SQLite-Transaktionen und halten die Positionen lückenlos.
+Bei einem Speicherfehler wird die gesamte Transaktion zurückgenommen. Nach einem
+Verbindungsabbruch kann eine Transaktion trotzdem bereits abgeschlossen sein:
+Clients müssen dann `GET /reading-list` abgleichen, bevor sie erneut schreiben.
+Die API bietet keine Live-Synchronisierung zwischen mehreren geöffneten Tabs.
+
+`npm test --prefix backend` prüft die Endpunkte, Schemaergänzung, Duplikate,
+Validierung, Rollback und Persistenz mit temporären Datenbanken. Der normale
+Buchbestand wird dabei nicht verändert.
+
 ## Startbestand und Init-Skript
 
 Der [Startbestand](data/README.md) enthält 1000 verschiedene englische und deutsche Titel mit

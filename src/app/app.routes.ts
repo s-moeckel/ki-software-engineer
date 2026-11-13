@@ -2,6 +2,10 @@ import { Routes } from '@angular/router';
 
 export const routes: Routes = [
   {
+    path: 'reading-list',
+    loadComponent: () => import('./reading-list/reading-list.component').then(module => module.ReadingListComponent)
+  },
+  {
     path: 'universe',
     loadComponent: () => import('./book-universe/book-universe.component').then(module => module.BookUniverseComponent)
   },

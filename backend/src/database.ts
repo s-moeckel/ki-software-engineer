@@ -8,6 +8,7 @@ export function openDatabase(
 ): DatabaseSync {
   if (filename !== ':memory:') mkdirSync(dirname(filename), { recursive: true });
   const database = new DatabaseSync(filename, { timeout: 5000 });
+  database.exec('PRAGMA foreign_keys = ON');
   // SQLite's built-in lower() only handles ASCII.
   database.function('fold', { deterministic: true }, value => String(value ?? '').toLowerCase());
   return database;

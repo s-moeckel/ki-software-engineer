@@ -50,6 +50,7 @@ import { CachedCoverPipe } from './cached-cover.pipe';
         >
           Details
         </button>
+        <ng-content />
       </div>
     </div>
   `

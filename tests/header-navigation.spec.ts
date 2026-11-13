@@ -2,6 +2,7 @@ import { expect, Page, test } from '@playwright/test';
 import { api, book } from './support/books';
 
 const views = [
+  { path: '/reading-list', name: 'Leseliste öffnen', text: 'Leseliste' },
   { path: '/library', name: 'Virtual Library öffnen', text: 'Library' },
   { path: '/universe', name: 'BookMonkey Universe öffnen', text: 'Universe' },
   { path: '/', name: 'Listenansicht öffnen', text: 'Listenansicht' }
@@ -39,6 +40,7 @@ test.beforeEach(async ({ page }) => {
   });
   await page.route(/^https:\/\//, route => route.abort());
   await page.route(`${api}*`, route => route.fulfill({ json: [book] }));
+  await page.route('http://localhost:4730/reading-list', route => route.fulfill({ json: [] }));
   await page.emulateMedia({ reducedMotion: 'reduce' });
 });
 
@@ -55,11 +57,11 @@ for (const mobile of [false, true]) {
         const nav = page.getByRole('navigation', { name: 'Hauptnavigation' });
         const home = header.getByRole('link', { name: 'BookMonkey', exact: true });
         await expect(home).toHaveAttribute('href', '/');
-        await expect(header.locator('a, button')).toHaveCount(6);
+        await expect(header.locator('a, button')).toHaveCount(7);
         await expect(nav.locator('a > span:not([aria-hidden])')).toHaveText(views.map(view => view.text));
-        await expect(header.locator('a, button').nth(4)).toHaveAccessibleName('Zufälliges Buch auswürfeln');
+        await expect(header.locator('a, button').nth(5)).toHaveAccessibleName('Zufälliges Buch auswürfeln');
         const theme = header.getByRole('button', { name: /^Farbschema:/ });
-        await expect(header.locator('a, button').nth(5)).toHaveAccessibleName(/^Farbschema:/);
+        await expect(header.locator('a, button').nth(6)).toHaveAccessibleName(/^Farbschema:/);
 
         // Exercise both global actions from every directly opened view.
         for (const [current, next] of [
@@ -100,7 +102,7 @@ for (const mobile of [false, true]) {
           await expect(page).toHaveURL('http://localhost:4200/');
           await expectActiveView(page, '/');
         }
-        await nav.getByRole('link', { name: views[1].name }).click();
+        await nav.getByRole('link', { name: 'BookMonkey Universe öffnen' }).click();
         await expectActiveView(page, '/universe');
         await page.goBack();
         await expectActiveView(page, '/');
