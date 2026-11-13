@@ -1,0 +1,48 @@
+@let current = state();
+<section
+  aria-label="Informationen von Google Books"
+  [attr.aria-busy]="current.kind === 'loading'"
+  class="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 break-words"
+>
+  <h3 class="font-semibold">Informationen von Google Books</h3>
+  @if (current.kind === 'loading') {
+    <p role="status" class="mt-2">Informationen von Google Books werden geladen…</p>
+  } @else if (current.kind === 'error') {
+    <p role="alert" class="mt-2 text-red-700 dark:text-red-300">
+      Informationen von Google Books konnten nicht geladen werden. Bitte versuchen Sie es erneut.
+    </p>
+    <button mat-stroked-button type="button" class="mt-2" (click)="retry()">Erneut versuchen</button>
+  } @else if (current.kind === 'ready') {
+    @if (current.information; as information) {
+      @if (information.description) {
+        <h4 class="font-semibold mt-3">Beschreibung</h4>
+        <p class="whitespace-pre-wrap">{{ information.description }}</p>
+      }
+      <dl class="grid gap-2 mt-3">
+        @if (information.averageRating !== undefined) {
+          <div>
+            <dt class="font-semibold">Durchschnittsbewertung</dt>
+            <dd class="m-0">{{ information.averageRating }} von 5</dd>
+          </div>
+        }
+        @if (information.ratingsCount !== undefined) {
+          <div>
+            <dt class="font-semibold">Bewertungsanzahl</dt>
+            <dd class="m-0">{{ information.ratingsCount }}</dd>
+          </div>
+        }
+      </dl>
+      @if (information.sourceUrl) {
+        <a
+          class="inline-block mt-3 underline text-blue-700 dark:text-blue-300"
+          [href]="information.sourceUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Bei Google Books ansehen</a
+        >
+      }
+    } @else {
+      <p class="mt-2">Keine zusätzlichen Informationen gefunden</p>
+    }
+  }
+</section>

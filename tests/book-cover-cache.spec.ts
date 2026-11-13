@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/ui-test';
 import { cachedCoverUrl } from '../src/app/books/cached-cover-url';
 import { book } from './support/books';
 

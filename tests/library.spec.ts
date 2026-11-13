@@ -1,5 +1,6 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page, test } from './support/ui-test';
 import { api, book } from './support/books';
+import { waitForAnimationFrames } from './support/graphics';
 
 // Software WebGL keeps real rendering testable on CI; lower pixel density limits its CPU cost.
 test.use({
@@ -107,7 +108,7 @@ test('right mouse walks, release outside the scene, Escape and blur stop movemen
   await page.mouse.move(bounds.x + bounds.width + 20, bounds.y + 20);
   await page.mouse.up({ button: 'right' });
   const stopped = await cameraState(page);
-  await page.waitForTimeout(200);
+  await waitForAnimationFrames(page);
   expect(await cameraState(page)).toEqual(stopped);
 
   await page.getByRole('button', { name: 'Ansicht zurücksetzen' }).click();
@@ -117,7 +118,7 @@ test('right mouse walks, release outside the scene, Escape and blur stop movemen
   await expect.poll(async () => cameraState(page)).not.toEqual(reset);
   await page.keyboard.press('Escape');
   const escaped = await cameraState(page);
-  await page.waitForTimeout(200);
+  await waitForAnimationFrames(page);
   expect(await cameraState(page)).toEqual(escaped);
   await page.mouse.up({ button: 'right' });
 
@@ -128,7 +129,7 @@ test('right mouse walks, release outside the scene, Escape and blur stop movemen
   await expect.poll(async () => cameraState(page)).not.toEqual(beforeBlur);
   await page.evaluate(() => window.dispatchEvent(new Event('blur')));
   const blurred = await cameraState(page);
-  await page.waitForTimeout(200);
+  await waitForAnimationFrames(page);
   expect(await cameraState(page)).toEqual(blurred);
   await page.mouse.up({ button: 'right' });
 });
@@ -167,7 +168,7 @@ test('mouse wheel zooms only a held book and right mouse cannot walk while inspe
   const bounds = (await canvas.boundingBox())!;
   await page.mouse.move(bounds.x + bounds.width - 30, bounds.y + 30);
   await page.mouse.down({ button: 'right' });
-  await page.waitForTimeout(200);
+  await waitForAnimationFrames(page);
   expect(await cameraState(page)).toEqual(held);
   await page.mouse.up({ button: 'right' });
   const scroll = await page.evaluate(() => window.scrollY);
@@ -206,7 +207,7 @@ test('mouse movement respects shelf and wall collisions', async ({ page }) => {
       const stopped = await cameraState(page);
       expect(stopped.z).toBeLessThanOrEqual(position.limit);
       expect(stopped.y).toBe(1.65);
-      await page.waitForTimeout(200);
+      await waitForAnimationFrames(page);
       expect(await cameraState(page)).toEqual(stopped);
     }).toPass({ timeout: 10_000 });
     await page.mouse.up({ button: 'right' });

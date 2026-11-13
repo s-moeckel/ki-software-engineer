@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page, test } from './support/ui-test';
 import { api, book } from './support/books';
 import { PerspectiveCamera, Vector3 } from 'three';
 import { cameraDistance, createGalaxy } from '../src/app/book-universe/universe-data';

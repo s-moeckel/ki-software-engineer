@@ -3,6 +3,7 @@ import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChang
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
+import { GOOGLE_BOOKS_API_KEY } from './books/google-books-api-client.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -10,6 +11,8 @@ export const appConfig: ApplicationConfig = {
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
     provideHttpClient(),
+    // Optional public browser key; restrict API access and HTTP referrers in Google Cloud.
+    { provide: GOOGLE_BOOKS_API_KEY, useValue: '' },
     provideAnimations()
   ]
 };

@@ -36,8 +36,19 @@ the only configured browser project. Run all product checks (excluding the exter
 Playwright example):
 
 ```sh
-npx playwright test tests/book-create.spec.ts tests/book-details.spec.ts tests/book-pagination.spec.ts tests/book-search.spec.ts tests/book-random.spec.ts tests/book-cover-cache.spec.ts tests/theme.spec.ts tests/library.spec.ts tests/library-review.spec.ts tests/library-data.spec.ts tests/library-display.spec.ts tests/library-cover-cache.spec.ts tests/book-universe.spec.ts tests/universe-data.spec.ts tests/isbn.spec.ts tests/reading-list.spec.ts tests/header-navigation.spec.ts --workers=1
+npm run test:ui
+npx playwright show-report
 ```
+
+Playwright starts Angular automatically. The API and cover endpoints are mocked;
+no running backend is required. A shared browser fixture blocks and reports
+unmocked backend requests. The external Playwright example is excluded from the
+product run. The HTML report does not open a server automatically; if port 9323
+is occupied, use `npx playwright show-report --port 9324`.
+
+The [frontend test coverage matrix](docs/ui-test-coverage.md) maps reachable
+pages, components and user journeys to their specs. Pure data/validation tests
+also run in this command and are identified separately in the matrix.
 
 ## Local Development
 
@@ -295,6 +306,46 @@ errors, retries, keyboard focus and mobile forms in both themes.
 Book details use `GET /books/:isbn`; editing sends the full book to `PUT /books/:isbn`,
 including its unchanged `id`, `userId`, and ISBN. `price` remains a string.
 See the [backend API contract](backend/README.md#api-vertrag).
+
+### Informationen von Google Books
+
+Der Buchdetaildialog lädt in einem eigenen Abschnitt zusätzliche Informationen
+von Google Books anhand der ISBN. Beschreibung, Durchschnittsbewertung,
+Bewertungsanzahl und Quellenlink erscheinen, soweit verfügbar. Nur Treffer mit
+passender ISBN werden übernommen; Trennzeichen und äquivalente ISBN-10/ISBN-13
+werden berücksichtigt. Eigene Buchdaten und Bearbeitungsentwürfe bleiben davon
+unabhängig. Externe Beschreibungen werden als Text angezeigt.
+
+Der Abschnitt hat eigene Lade-, Leer- und Fehlerzustände mit **Erneut versuchen**.
+Fehler einschließlich Kontingentüberschreitung blockieren weder Details noch
+Bearbeitung. Abrufe enden nach 15 Sekunden oder beim Schließen beziehungsweise
+beim Wechsel in den Editor. Die Rückkehr aus dem Editor lädt die Angaben erneut.
+Die ISBN wird beim Anzeigen direkt an Google übertragen; die Zusatzdaten werden
+nicht in der eigenen Datenbank gespeichert.
+
+Für einen verlässlichen Live-Zugang ein Google-Cloud-Projekt mit aktivierter
+Books API und verfügbarem Abfragekontingent verwenden. Den öffentlichen
+Browser-API-Key in `src/app/app.config.ts` beim Provider `GOOGLE_BOOKS_API_KEY`
+als `useValue` konfigurieren. Den Key auf die Books API und die erlaubten
+HTTP-Referrer der Anwendung beschränken (für Entwicklung zum Beispiel
+`http://localhost:4200/*`). Keine privaten Zugangsdaten oder unbeschränkten Keys
+einchecken. Ohne konfigurierten Key wird die öffentliche Anfrage ohne `key`
+gesendet; Google kann sie ablehnen. Der Live-Test ohne Key am 13.11.2026 lieferte
+HTTP 429 mit erschöpftem Kontingent, keinen erfolgreichen Datenabruf.
+Ein gültiger Key und ein ausreichendes Kontingent müssen für den jeweiligen
+Betrieb bereitgestellt werden.
+
+API-Vertrag und Einrichtung: [Google Books API](https://developers.google.com/books/docs/v1/using),
+[Volumes-Suche](https://developers.google.com/books/docs/v1/reference/volumes/list).
+
+```sh
+npx playwright test tests/book-google-information.spec.ts tests/google-books-data.spec.ts tests/book-details.spec.ts --workers=1
+npm run build
+```
+
+Die Feature-Tests mocken Google Books ausdrücklich; andere Produkttests blockieren
+externe Dienste weiterhin. Die Datenprüfungen verwenden den bestehenden
+Playwright-Runner ohne Browser und benötigen kein Karma-Setup.
 
 ### ISBN validation
 

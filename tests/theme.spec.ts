@@ -1,4 +1,4 @@
-import { expect, test, Locator, Page } from '@playwright/test';
+import { expect, test, Locator, Page } from './support/ui-test';
 import { api, book, expectBookRequest, setup } from './support/books';
 
 type Scheme = 'light' | 'dark';

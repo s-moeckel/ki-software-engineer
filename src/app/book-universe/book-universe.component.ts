@@ -179,6 +179,8 @@ export class BookUniverseComponent implements AfterViewInit, OnDestroy {
   searchKey(event: KeyboardEvent): void {
     const count = Math.min(8, this.results().length);
     if (event.key === 'Escape') {
+      // Native search inputs otherwise clear themselves and reopen results through the input event.
+      event.preventDefault();
       this.searchOpen.set(false);
       return;
     }

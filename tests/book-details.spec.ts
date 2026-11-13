@@ -1,4 +1,4 @@
-import { expect, test, Page } from '@playwright/test';
+import { expect, test, Page } from './support/ui-test';
 import type { Book } from '../src/app/books/book';
 import { api, book, expectBookRequest, expectListRequest, setup } from './support/books';
 

@@ -7,6 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
+    "test:ui": "playwright test --workers=1",
     "format.write": "prettier --write \"src/**/*.{ts,html,md,css,json}\"",
     "backend": "npm --prefix backend run dev",
     "build.angular-mcp": "tsc --project tools/angular-mcp/tsconfig.json --watch",

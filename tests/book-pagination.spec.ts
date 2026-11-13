@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './support/ui-test';
 import { api, book } from './support/books';
 
 async function setupPagination(page: Page) {

@@ -1,4 +1,4 @@
-﻿import { expect, test } from '@playwright/test';
+import { expect, test } from './support/ui-test';
 import { BooksPage } from './pages/books.page';
 import { api, book, expectListRequest } from './support/books';
 

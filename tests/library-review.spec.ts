@@ -1,5 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/ui-test';
 import { api, book } from './support/books';
+import { waitForAnimationFrames } from './support/graphics';
 
 test.use({
   deviceScaleFactor: 0.5,
@@ -116,7 +117,7 @@ test('WebGL context loss stops frames, releases the scene and preserves HTML det
   expect(released.listeners).toBe(0);
   expect(released.geometries).toBe(0);
   expect(released.textures).toBe(0);
-  await page.waitForTimeout(200);
+  await waitForAnimationFrames(page);
   expect(await oldRenderer.evaluate(renderer => renderer.testFrames)).toBe(released.frames);
   await page
     .getByRole('complementary', { name: 'Bücherliste' })

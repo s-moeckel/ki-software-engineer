@@ -40,7 +40,7 @@ export async function setup(page: Page, mockNewReleases = true): Promise<void> {
   }
   // Block external assets so the product tests do not depend on third parties.
   await page.route(/^https:\/\//, route => route.abort());
-  await page.route(`${api}*`, route => {
+  await page.route(`${api}?*`, route => {
     expectListRequest(route);
     return route.fulfill({ json: [book] });
   });

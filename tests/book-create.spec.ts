@@ -1,10 +1,13 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './support/ui-test';
 import { api, book, expectListRequest, setup } from './support/books';
 import type { Book, NewBook } from '../src/app/books/book';
 
 async function open(page: Page) {
   await page.getByRole('button', { name: 'Buch anlegen', exact: true }).click();
-  return page.getByRole('dialog');
+  const dialog = page.getByRole('dialog');
+  // Wait for Material's deferred autofocus before fill() can move focus to another field.
+  await expect(dialog.getByLabel('ISBN', { exact: true })).toBeFocused();
+  return dialog;
 }
 
 async function fillRequired(page: Page) {

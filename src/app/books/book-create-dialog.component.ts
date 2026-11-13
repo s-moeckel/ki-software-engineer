@@ -9,12 +9,20 @@ import { MatInputModule } from '@angular/material/input';
 import { timeout, TimeoutError } from 'rxjs';
 import { Book } from './book';
 import { publicationDateValidator } from './publication-date';
+import { DateInputValidatorDirective } from './date-input-validator.directive';
 import { BookApiClient } from './book-api-client.service';
 
 @Component({
   selector: 'app-book-create-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ReactiveFormsModule, MatButtonModule, MatDialogModule, MatFormFieldModule, MatInputModule],
+  imports: [
+    ReactiveFormsModule,
+    MatButtonModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatInputModule,
+    DateInputValidatorDirective
+  ],
   templateUrl: './book-create-dialog.component.html',
   styles: `
     :host {

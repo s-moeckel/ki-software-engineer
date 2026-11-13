@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/ui-test';
 import { api, book } from './support/books';
 
 test.use({

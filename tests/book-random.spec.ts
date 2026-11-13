@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page, test } from './support/ui-test';
 import { api, book, expectListRequest, setup } from './support/books';
 
 const collection = Array.from({ length: 12 }, (_, index) => ({

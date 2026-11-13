@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
+import { expect, Page, test } from './support/ui-test';
 import { api, book } from './support/books';
 
 const views = [

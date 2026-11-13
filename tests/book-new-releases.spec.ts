@@ -1,33 +1,60 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './support/ui-test';
 import { api, book, setup } from './support/books';
 
 for (const editing of [false, true]) {
-  test(`NR-11: incomplete date blocks saving (${editing ? 'edit' : 'create'})`, async ({ page }) => {
-    await setup(page);
+  test(`NR-11: unvollständiges Datum verhindert Speichern und bleibt korrigierbar (${editing ? 'Bearbeiten' : 'Anlegen'})`, async ({
+    page
+  }) => {
     let writes = 0;
-    page.on('request', request => {
-      if (['POST', 'PUT'].includes(request.method())) writes++;
-    });
-    if (editing) {
-      await page.getByRole('button', { name: `Details for ${book.title}`, exact: true }).click();
-      await page.getByRole('dialog').getByRole('button', { name: 'Edit', exact: true }).click();
-    } else {
-      await page.getByRole('button', { name: 'Buch anlegen', exact: true }).click();
-      for (const [label, value] of Object.entries({ ISBN: 'new', Titel: 'Neu', Autor: 'Autor', Seitenzahl: '100' })) {
-        await page.getByRole('dialog').getByLabel(label, { exact: true }).fill(value);
+    await test.step('Given ein ausgefülltes Buchformular', async () => {
+      await setup(page);
+      page.on('request', request => {
+        if (['POST', 'PUT'].includes(request.method())) writes++;
+      });
+      if (editing) {
+        await page.getByRole('button', { name: `Details for ${book.title}`, exact: true }).click();
+        await page.getByRole('dialog').getByRole('button', { name: 'Edit', exact: true }).click();
+      } else {
+        await page.getByRole('button', { name: 'Buch anlegen', exact: true }).click();
+        await expect(page.getByRole('dialog').getByLabel('ISBN', { exact: true })).toBeFocused();
+        for (const [label, value] of Object.entries({ ISBN: 'new', Titel: 'Neu', Autor: 'Autor', Seitenzahl: '100' })) {
+          await page.getByRole('dialog').getByLabel(label, { exact: true }).fill(value);
+        }
       }
-    }
+    });
     const dialog = page.getByRole('dialog');
     const date = dialog.getByLabel('Erscheinungsdatum', { exact: true });
-    await date.fill('2026-11-01');
-    // Chromium's segmented date editor: clear the year, leaving an incomplete date.
-    await date.press('ArrowRight');
-    await date.press('End');
-    await date.press('Backspace');
-    expect(await date.evaluate((el: HTMLInputElement) => el.validity.badInput)).toBe(true);
-    await dialog.getByRole('button', { name: editing ? 'Save' : 'Buch anlegen', exact: true }).click();
-    await expect(dialog.getByText('Bitte geben Sie ein gültiges Erscheinungsdatum ein.')).toBeVisible();
-    expect(writes).toBe(0);
+    const error = dialog.getByText('Bitte geben Sie ein gültiges Erscheinungsdatum ein.');
+    await test.step('When das Jahr im nativen Datumseingabefeld entfernt und Speichern versucht wird', async () => {
+      await date.fill('2026-11-01');
+      // Chromium's segmented date editor: clear the year, leaving an incomplete date.
+      await date.press('ArrowRight');
+      await date.press('End');
+      await date.press('Backspace');
+      expect(await date.evaluate((el: HTMLInputElement) => el.validity.badInput)).toBe(true);
+      await dialog.getByRole('button', { name: editing ? 'Save' : 'Buch anlegen', exact: true }).click();
+    });
+    await test.step('Then erscheint ein Validierungsfehler ohne Schreibrequest', async () => {
+      await expect(error).toBeVisible();
+      await expect(date).toBeEnabled();
+      expect(writes).toBe(0);
+    });
+    await test.step('When das Datum vervollständigt wird', async () => {
+      await date.fill('2026-11-01');
+    });
+    await test.step('Then verschwindet der Fehler', async () => {
+      await expect(error).toHaveCount(0);
+      await expect(date).toHaveValue('2026-11-01');
+    });
+    await test.step('When das optionale Datum vollständig geleert wird', async () => {
+      await date.fill('');
+    });
+    await test.step('Then bleibt das absichtlich leere Feld gültig', async () => {
+      await expect(date).toHaveValue('');
+      await expect(error).toHaveCount(0);
+      expect(await date.evaluate((el: HTMLInputElement) => el.validity.badInput)).toBe(false);
+      expect(writes).toBe(0);
+    });
   });
 }
 

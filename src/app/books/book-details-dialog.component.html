@@ -59,6 +59,7 @@
         <app-reading-list-add [isbn]="currentBook.isbn" />
         <h3 class="font-semibold">Description</h3>
         <p class="whitespace-pre-wrap break-words">{{ currentBook.abstract || 'No description available.' }}</p>
+        <app-book-google-information [isbn]="currentBook.isbn" />
       </div>
     </div>
   } @else if (state() === 'editing' || state() === 'saving' || state() === 'uncertain') {
@@ -94,8 +95,15 @@
       <mat-form-field><mat-label>Cover URL</mat-label><input matInput formControlName="cover" /></mat-form-field>
       <mat-form-field>
         <mat-label>Erscheinungsdatum</mat-label>
-        <input matInput type="date" formControlName="publicationDate" min="0001-01-01" max="9999-12-31" />
-        <mat-error>Bitte geben Sie ein g?ltiges Erscheinungsdatum ein.</mat-error>
+        <input
+          matInput
+          appDateInputValidator
+          type="date"
+          formControlName="publicationDate"
+          min="0001-01-01"
+          max="9999-12-31"
+        />
+        <mat-error>Bitte geben Sie ein gültiges Erscheinungsdatum ein.</mat-error>
       </mat-form-field>
       <mat-form-field class="sm:col-span-2"
         ><mat-label>Description</mat-label><textarea matInput formControlName="abstract" rows="5"></textarea>

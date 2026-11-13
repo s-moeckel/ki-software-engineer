@@ -1,4 +1,4 @@
-import { expect, Locator, Page, test } from '@playwright/test';
+import { expect, Locator, Page, test } from './support/ui-test';
 import { book } from './support/books';
 
 const endpoint = 'http://localhost:4730/reading-list';

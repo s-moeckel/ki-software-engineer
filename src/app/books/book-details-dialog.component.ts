@@ -10,9 +10,11 @@ import { MatInputModule } from '@angular/material/input';
 import { timeout, TimeoutError } from 'rxjs';
 import { Book } from './book';
 import { publicationDateValidator } from './publication-date';
+import { DateInputValidatorDirective } from './date-input-validator.directive';
 import { BookApiClient } from './book-api-client.service';
 import { CachedCoverPipe } from './cached-cover.pipe';
 import { ReadingListAddComponent } from '../reading-list/reading-list-add.component';
+import { BookGoogleInformationComponent } from './book-google-information.component';
 
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -25,7 +27,9 @@ import { ReadingListAddComponent } from '../reading-list/reading-list-add.compon
     MatFormFieldModule,
     MatInputModule,
     CachedCoverPipe,
-    ReadingListAddComponent
+    DateInputValidatorDirective,
+    ReadingListAddComponent,
+    BookGoogleInformationComponent
   ],
   templateUrl: './book-details-dialog.component.html',
   styles: `

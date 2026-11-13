@@ -24,6 +24,11 @@ Diese Datei gilt für `tests/` und seine Unterverzeichnisse und ergänzt die Roo
 ## Deterministische Szenarien
 
 - Registriere API-Mocks vor der Navigation. Verwende feste Daten und einen isolierten Zustand pro Test.
+- Importiere `test` und `expect` in Browser-Specs aus `./support/ui-test`. Diese Fixture blockiert und
+  meldet nicht gemockte Backend-Aufrufe und blockiert externe Dienste. Sie liefert für nicht beteiligte
+  Seitenbereiche eine leere Neuerscheinungsliste; eigene Page-Mocks können diese Vorgabe überschreiben.
+  Google-Font-Stylesheets werden mit leerem CSS beantwortet, damit lokale Schrift-Fallbacks ohne Netzwerkfehler funktionieren.
+  Reine Funktionsprüfungen benötigen keine Browser-Fixture.
 - Trenne Requests verschiedener Seitenbereiche anhand von Pfad und Parametern. Prüfe bei Suchrequests
   weiterhin den fachlichen Listenvertrag mit den vorhandenen Hilfsfunktionen.
 - Produkttests benötigen weder ein laufendes Backend noch externe Bilder oder Dienste. Das vorhandene
@@ -34,9 +39,10 @@ Diese Datei gilt für `tests/` und seine Unterverzeichnisse und ergänzt die Roo
   Prüfungen für Debouncing, verspätete Antworten, Clear und Cleanup bei Navigation.
 - UI-Tests mit gemockter API prüfen Darstellung und Request-Vertrag; sie beweisen nicht die Filterlogik des Backends.
 
-## Muster ausführen
+## Produktlauf und Muster ausführen
 
 ```sh
+npm run test:ui
 npx playwright test tests/book-search.spec.ts --workers=1
 npx playwright show-report
 ```
