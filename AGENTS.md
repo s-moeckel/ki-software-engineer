@@ -4,7 +4,7 @@ Diese Datei gilt für das gesamte Repository.
 
 ## Kontext und Orientierung
 
-- BookMonkey ist eine kleine Angular-20-Workshop-SPA mit Standalone-Komponenten, TypeScript im Strict-Modus, RxJS, Tailwind CSS 4 und Angular Material.
+- BookMonkey ist eine kleine Angular-21-Workshop-SPA mit Standalone-Komponenten, TypeScript im Strict-Modus, RxJS, Tailwind CSS 4 und Angular Material. Die Anwendung verwendet weiterhin Zone.js und typisierte Reactive Forms.
 - Lies [ARCHITECTURE.md](./ARCHITECTURE.md) für Architekturgrenzen, Risiken und die Begründung der bestehenden Struktur. Gleiche Aussagen mit dem aktuellen Code ab: Das Review beschreibt teilweise einen älteren Stand.
 - Inzwischen existieren ein Detail-/Bearbeitungsdialog, sichtbare Ladefehler, Request-Abbruch beim erneuten Listenabruf, Lifecycle-Cleanup und projektspezifische Playwright-Tests. Der Toast-Service wird verwendet.
 - [README.md](./README.md) beschreibt Entwicklung, API-Vertrag sowie Detail- und Suchtests. `backend/` enthält die eigene kompatible Express-/TypeScript-API mit SQLite-Dateidatenbank; `compose.yaml` bietet optionalen Dockerbetrieb. Details stehen in [backend/README.md](./backend/README.md).
